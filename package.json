@@ -4,11 +4,13 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "concurrently \"node server2.js\" \"npm run dev\"",
-    "dev": "vite",
+    "start": "node server2.js",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "node server2.js",
+    "frontend": "vite",
     "build": "vite build",
     "preview": "vite preview"
-  },
+},
   "dependencies": {
     "@headlessui/vue": "^1.7.22",
     "@inertiajs/vue3": "^1.2.0",
