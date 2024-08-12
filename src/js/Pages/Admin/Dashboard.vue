@@ -238,5 +238,5 @@ const heatMapChartOptions = {
   dataLabels: {
     enabled: false,
   },
-});
+};
 </script>
