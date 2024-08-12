@@ -4,7 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server2.js"
+    "dev": "npm run frontend",
+    "backend": "node server2.js",
+    "frontend": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
 },
   "dependencies": {
     "@headlessui/vue": "^1.7.22",
