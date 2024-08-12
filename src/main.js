@@ -1,5 +1,3 @@
-// src/main.js
-
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
@@ -19,19 +17,27 @@ async function loadLocaleMessages() {
   };
 }
 
-// i18n setup with dynamic message loading
-const i18n = createI18n({
-  legacy: false,
-  locale: 'en',
-  fallbackLocale: 'en',
-  messages: await loadLocaleMessages(),
-});
+async function initApp() {
+  // Load messages asynchronously
+  const messages = await loadLocaleMessages();
 
-const app = createApp(App);
+  // i18n setup with dynamic message loading
+  const i18n = createI18n({
+    legacy: false,
+    locale: 'en',
+    fallbackLocale: 'en',
+    messages: messages,
+  });
 
-app.use(store)  // Register the store
-   .use(router)
-   .use(VueApexCharts)
-   .use(i18n);
+  const app = createApp(App);
 
-app.mount('#app');
+  app.use(store)  // Register the store
+     .use(router)
+     .use(VueApexCharts)
+     .use(i18n);
+
+  app.mount('#app');
+}
+
+// Initialize the app
+initApp();

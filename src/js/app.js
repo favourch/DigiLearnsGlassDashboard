@@ -1,4 +1,4 @@
-import { createApp, h, watchEffect } from 'vue';
+import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import VueApexCharts from 'vue3-apexcharts';
 import VueTelInput from 'vue-tel-input';
@@ -23,16 +23,15 @@ createInertiaApp({
     return pages[`./Pages/${name}.vue`];
   },
   setup({ el, App, props, plugin }) {
-    // Fetch the current locale and available locales from the Laravel backend
     axios.get('/current-locale').then(async (response) => {
       const currentLocale = response.data.locale;
       const availableLocales = await fetchAvailableLocales();
 
       const i18n = createI18n({
         legacy: false,
-        locale: currentLocale, // Default locale
-        fallbackLocale: 'en', // Fallback locale
-        messages: {}, // Initial empty messages
+        locale: currentLocale,
+        fallbackLocale: 'en',
+        messages: {},
       });
 
       const app = createApp({ render: () => h(App, props) });
@@ -45,14 +44,12 @@ createInertiaApp({
 
       // Load the default locale messages
       if (availableLocales.includes(currentLocale)) {
-        loadLocaleMessages(currentLocale).then(messages => {
-          i18n.global.setLocaleMessage(currentLocale, messages);
-        });
+        const messages = await loadLocaleMessages(currentLocale);
+        i18n.global.setLocaleMessage(currentLocale, messages);
       }
 
       // Watch for locale changes and dynamically load new locale messages
-      watchEffect(async () => {
-        const newLocale = i18n.global.locale.value;
+      i18n.global.locale.watch(async (newLocale) => {
         if (!i18n.global.availableLocales.includes(newLocale) && availableLocales.includes(newLocale)) {
           const messages = await loadLocaleMessages(newLocale);
           i18n.global.setLocaleMessage(newLocale, messages);
