@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "start": "node server2.js",
+    "start": "node server2.js"
 },
   "dependencies": {
     "@headlessui/vue": "^1.7.22",
