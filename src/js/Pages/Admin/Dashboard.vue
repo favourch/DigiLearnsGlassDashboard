@@ -156,7 +156,14 @@ async function fetchDashboardData() {
 
 function updateDateRange(value) {
   selectedDateRange.value = value;
+  isLoading.value = true; // Start the loading spinner
+
+  // Fetch the updated data
+  fetchDashboardData().finally(() => {
+    isLoading.value = false; // Stop the loading spinner once data is fetched
+  });
 }
+
 
 function toggleStateView() {
   isShowingTop8.value = !isShowingTop8.value;
