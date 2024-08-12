@@ -185,6 +185,10 @@
             // Store the user data in Vuex
             store.dispatch('setUser', response.data.user);
 
+            // Store a token or flag in localStorage to mark the user as authenticated
+            const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
+            localStorage.setItem(authTokenKey, 'your-auth-token-or-true');
+
             // Redirect to the dashboard
             window.location.href = response.data.redirectTo;
         } else {
@@ -198,6 +202,7 @@
         isLoading.value = false;
     }
 };
+
 
   
   onMounted(() => {

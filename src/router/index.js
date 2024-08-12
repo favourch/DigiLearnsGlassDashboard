@@ -17,15 +17,18 @@ const router = createRouter({
 
 // Auth Guard
 router.beforeEach((to, from, next) => {
-    const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
-    const isAuthenticated = !!localStorage.getItem(authTokenKey); // Check if token exists
+  const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
+  const isAuthenticated = !!localStorage.getItem(authTokenKey); // Check if token exists
 
-    if (to.path === '/dashboard' && !isAuthenticated) {
-        next('/login'); // Redirect to login if not authenticated
-    } else {
-        next(); // Allow navigation
-    }
+  if (to.path !== '/login' && !isAuthenticated) {
+      next('/login'); // Redirect to login if not authenticated
+  } else if (to.path === '/login' && isAuthenticated) {
+      next('/dashboard'); // Redirect to dashboard if already authenticated
+  } else {
+      next(); // Allow navigation
+  }
 });
+
 
 
 export default router;
