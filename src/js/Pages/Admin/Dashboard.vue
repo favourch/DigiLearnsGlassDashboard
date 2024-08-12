@@ -1,6 +1,9 @@
 <template>
   <AppLayout>
-    <div v-if="user" class="bg-white md:bg-inherit p-4 md:p-8 rounded-[5px] text-[#000] h-full overflow-y-auto">
+    <div v-if="isLoading" class="h-full flex items-center justify-center">
+      <Spinner />
+    </div>
+    <div v-else-if="user" class="bg-white md:bg-inherit p-4 md:p-8 rounded-[5px] text-[#000] h-full overflow-y-auto">
       <div class="flex justify-between mt-3 md:mt-0">
         <div>
           <h2 class="md:block hidden text-xl mb-1">{{ $t('Dashboard') }}</h2>
@@ -79,6 +82,7 @@
 
 <script setup>
 import AppLayout from './Layout/App.vue';
+import Spinner from './Spinner.vue';  // Import Spinner component
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import axios from 'axios';
@@ -92,6 +96,7 @@ const user = ref({
   last_name: 'Doe',
 });
 const isProfileModalOpen = ref(false);
+const isLoading = ref(true); // Add a loading state
 
 const metrics = ref([]);
 const usersByClassSeries = ref([]);
@@ -132,7 +137,7 @@ async function fetchDashboardData() {
 
     // Update chart series data
     usersByClassSeries.value = data.usersByClass.map(item => item.count);
-    pieChartOptions.labels = data.usersByClass.map(item => item._id); // Update class labels
+    pieChartOptions.value.labels = data.usersByClass.map(item => item._id); // Update class labels
     usersByGenderSeries.value = [{ name: 'Users', data: data.usersByGender.map(item => item.count) }];
     usersByStateSeries.value = [{ name: 'States', data: data.usersByState.map(item => item.count) }];
     usersByAgeSeries.value = [{ name: 'Users', data: data.usersByAge.map(item => item.count) }];
@@ -144,6 +149,8 @@ async function fetchDashboardData() {
     }));
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
+  } finally {
+    isLoading.value = false; // Stop loading once data is fetched
   }
 }
 
@@ -170,7 +177,7 @@ const pieChartOptions = ref({
   },
 });
 
-const barChartOptions = {
+const barChartOptions = ref({
   chart: {
     type: 'bar',
   },
@@ -183,9 +190,9 @@ const barChartOptions = {
       columnWidth: '50%',
     },
   },
-};
+});
 
-const stateChartOptions = {
+const stateChartOptions = ref({
   chart: {
     type: 'bar',
   },
@@ -198,9 +205,9 @@ const stateChartOptions = {
       columnWidth: '50%',
     },
   },
-};
+});
 
-const ageChartOptions = {
+const ageChartOptions = ref({
   chart: {
     type: 'bar',
   },
@@ -213,9 +220,9 @@ const ageChartOptions = {
       columnWidth: '50%',
     },
   },
-};
+});
 
-const heatMapChartOptions = {
+const heatMapChartOptions = ref({
   chart: {
     type: 'heatmap',
   },
@@ -226,17 +233,18 @@ const heatMapChartOptions = {
       useFillColorAsStroke: true,
       colorScale: {
         ranges: [
-          { from: 0, to: 10, color: '#f3b4ab' },
-          { from: 11, to: 20, color: '#f79878' },
-          { from: 21, to: 30, color: '#f37a44' },
-          { from: 31, to: 40, color: '#f1621c' },
-          { from: 41, to: 50, color: '#f14000' },
-        ],
+  { from: 0, to: 10, color: '#f3b4ab' },
+  { from: 11, to: 20, color: '#f79878' },  // Added colon after `from`
+  { from: 21, to: 30, color: '#f37a44' },  // Added colon after `from`
+  { from: 31, to: 40, color: '#f1621c' },  // Added colon after `from`
+  { from: 41, to: 50, color: '#f14000' },  // Added colon after `from`
+]
+
       },
     },
   },
   dataLabels: {
     enabled: false,
   },
-};
+});
 </script>
