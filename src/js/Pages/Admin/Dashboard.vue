@@ -12,7 +12,7 @@
               {{ `Welcome back, ${user.first_name}` }} 👋
             </span>
             <span v-else class="mt-1 font-semibold md:font-normal text-xl">
-               Gideon👋
+               Welcome back, Gideon 👋
             </span>
           </p>
         </div>
