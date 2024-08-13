@@ -134,9 +134,9 @@ async function fetchDashboardData() {
       { title: 'Total States', value: data.totalStates },
       { title: 'Total Classes', value: data.totalClasses },
       { title: 'Active Users', value: data.activeUsers },
-      { title: 'Total Revenue', value: data.totalRevenue },
-      { title: 'Open Tickets', value: data.openTickets },
-      { title: 'Total Messages', value: data.totalMessages },
+      { title: 'Avg Ret Users', value: data.totalRevenue },
+      { title: 'Subscribers', value: data.openTickets },
+      { title: 'Total SMS', value: data.totalMessages },
     ];
 
     // Process state data for top 4 and least 4

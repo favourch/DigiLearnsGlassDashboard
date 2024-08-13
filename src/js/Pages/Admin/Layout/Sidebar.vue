@@ -201,37 +201,23 @@
       </span>
     </a>
 
-    <div class="flex items-center m-3 p-2 rounded-xl h-14 py-1 md:py-1 mt-2 space-x-4 justify-between bg-slate-50">
+    <div class="flex items-center m-3 p-2 rounded-[5px] h-20 py-1 md:py-1 mt-2 space-x-4 justify-between bg-slate-50">
       <div class="flex space-x-2">
-        <div class="rounded-xl p-1 bg-slate-200">
-          <div class="rounded-full w-9 h-9 flex justify-center items-center">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-              <g fill="none" stroke="currentColor" stroke-width="1.5">
-                <circle cx="12" cy="6" r="4"></circle>
-                <path stroke-linecap="round"
-                  d="M19.998 18c.002-.164.002-.331.002-.5c0-2.485-3.582-4.5-8-4.5s-8 2.015-8 4.5S4 22 12 22c2.231 0 3.84-.157 5-.437">
-                </path>
-              </g>
-            </svg>
+          <div class="rounded-full p-1">
+              <img class="rounded-full w-9 h-9" :src="'https://res.cloudinary.com/dzsp4g9vd/image/upload/v1723145284/digilearns/profile/Gideon-Olanrewaju.png'">
+              
           </div>
-        </div>
-        <div>
-          <h2 class="text-[15px] capitalize truncate w-[6em]">
-            {{ getUser.first_name }} {{ getUser.last_name }}
-          </h2>
-          <span class="flex items-center space-x-1">
-            <span class="text-sm hover:underline dark:text-gray-400 cursor-pointer">View Profile</span>
-          </span>
-        </div>
+          <div>
+              <h2 class="text-[18px] capitalize truncate w-[6em]">Gideon Olanrewaju</h2>
+              <span class="flex items-center space-x-1">
+                  <span @click="openModal" class="text-sm hover:underline dark:text-gray-400 cursor-pointer">{{ $t('View profile') }}</span>
+              </span>
+          </div>
       </div>
-      <a class="hover:bg-[#F6F7F9] hover:rounded-full w-[fit-content] p-2" href="/logout">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-            d="m12 15l3-3m0 0l-3-3m3 3H4m5-4.751V7.2c0-1.12 0-1.68.218-2.108c.192-.377.497-.682.874-.874C10.52 4 11.08 4 12.2 4h4.6c1.12 0 1.68 0 2.107.218c.377.192.683.497.875.874c.218.427.218.987.218 2.105v9.607c0 1.118 0 1.677-.218 2.104a2.002 2.002 0 0 1-.875.874c-.427.218-.986.218-2.104.218h-4.606c-1.118 0-1.678 0-2.105-.218a2 2 0 0 1-.874-.874C9 18.48 9 17.92 9 16.8v-.05">
-          </path>
-        </svg>
-      </a>
-    </div>
+      <Link href="/logout" class="hover:bg-[#F6F7F9] hover:rounded-full w-[fit-content] p-2">
+          <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 15l3-3m0 0l-3-3m3 3H4m5-4.751V7.2c0-1.12 0-1.68.218-2.108c.192-.377.497-.682.874-.874C10.52 4 11.08 4 12.2 4h4.6c1.12 0 1.68 0 2.107.218c.377.192.683.497.875.874c.218.427.218.987.218 2.105v9.607c0 1.118 0 1.677-.218 2.104a2.002 2.002 0 0 1-.875.874c-.427.218-.986.218-2.104.218h-4.606c-1.118 0-1.678 0-2.105-.218a2 2 0 0 1-.874-.874C9 18.48 9 17.92 9 16.8v-.05"/></svg>
+      </Link>
+  </div>
   </aside>
 </template>
 

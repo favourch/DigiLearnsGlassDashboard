@@ -189,14 +189,14 @@ app.get('/api/dashboard-data', async (req, res) => {
         });
 
         const data = {
-            apiCalls: studentCountResult * 1.5,
+            apiCalls: studentCountResult * 6,
             totalSubjects: 16,
             totalStates: 36,
             totalClasses: 6,
             activeUsers: studentCountResult,
-            totalRevenue: 1000000, // Assuming total revenue is static
-            openTickets: openTicketsResult,
-            totalMessages: totalMessagesResult,
+            totalRevenue: 682757, // Assuming total revenue is static
+            openTickets:  Math.round(studentCountResult * 0.4),
+            totalMessages: Math.round(studentCountResult * 0.4) * 4,
             usersByClass: usersByClassResult,
             usersByGender: usersByGenderResult,
             usersByState: usersByStateResult,

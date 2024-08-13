@@ -101,18 +101,12 @@
         <div class="flex space-x-2">
           <div class="rounded-xl p-1 bg-slate-200">
             <div class="rounded-full w-9 h-9 flex justify-center items-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
-                <g fill="none" stroke="currentColor" stroke-width="1.5">
-                  <circle cx="12" cy="6" r="4"></circle>
-                  <path stroke-linecap="round"
-                    d="M19.998 18c.002-.164.002-.331.002-.5c0-2.485-3.582-4.5-8-4.5s-8 2.015-8 4.5S4 22 12 22c2.231 0 3.84-.157 5-.437">
-                  </path>
-                </g>
-              </svg>
+              <img width="24" height="24" src="https://res.cloudinary.com/dzsp4g9vd/image/upload/v1723145284/digilearns/profile/Gideon-Olanrewaju.png">
             </div>
           </div>
           <div>
             <h2 class="text-[15px] capitalize truncate w-[6em]">{{ getUser.first_name || '' }} {{ getUser.last_name || '' }}</h2>
+            <h2 class="text-[15px] capitalize truncate w-[6em]">Gideon Olanrewaju</h2>
             <span class="flex items-center space-x-1">
               <span class="text-sm hover:underline dark:text-gray-400 cursor-pointer">View Profile</span>
             </span>
