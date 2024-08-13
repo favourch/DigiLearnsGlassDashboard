@@ -216,7 +216,9 @@
           </div>
         </div>
         <div>
-          <h2 class="text-[15px] capitalize truncate w-[6em]">Favour Chukwuedo</h2>
+          <h2 class="text-[15px] capitalize truncate w-[6em]">
+            {{ getUser.first_name }} {{ getUser.last_name }}
+          </h2>
           <span class="flex items-center space-x-1">
             <span class="text-sm hover:underline dark:text-gray-400 cursor-pointer">View Profile</span>
           </span>
@@ -234,18 +236,21 @@
 </template>
 
 <script>
+import { mapGetters } from 'vuex';
+
 export default {
   name: "Sidebar",
-  data() {
-    return {
-      // Define any reactive data properties here
-    };
+  computed: {
+    ...mapGetters(['getUser']),
   },
   methods: {
-    // Define any methods here
+    toggleSidebar() {
+      this.$emit('toggleSidebar');
+    },
   },
 };
 </script>
+
 
 <style scoped>
 /* Add any scoped CSS here */

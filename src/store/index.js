@@ -3,7 +3,10 @@ import { createStore } from 'vuex';
 
 export const store = createStore({
   state: {
-    user: null,
+    user: {
+      first_name: "",
+      last_name: "",
+    },
   },
   mutations: {
     setUser(state, userData) {

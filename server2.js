@@ -4,12 +4,21 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import NodeCache from 'node-cache';
+import session from 'express-session'; // Import express-session
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Set up session middleware
+app.use(session({
+    secret: process.env.SESSION_SECRET || 'your-secret-key', // Use a strong secret key
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false } // Set to true if using HTTPS
+}));
 
 // Cache with a 5-minute TTL (Time-To-Live)
 const cache = new NodeCache({ stdTTL: 300 });
@@ -50,9 +59,24 @@ const UserAction = mongoose.model('UserAction', new mongoose.Schema({
 }));
 
 // Middleware to authenticate user and attach to req.user
-app.use((req, res, next) => {
-    // Mock user for demonstration purposes
-    req.user = { id: 1 }; // Replace with actual logic
+app.use(async (req, res, next) => {
+    const userId = req.session.userId; // Session-based auth
+
+    if (userId) {
+        try {
+            const user = await User.findById(userId).select('first_name last_name email avatar');
+            if (user) {
+                req.user = user;
+            } else {
+                req.user = null;
+            }
+        } catch (error) {
+            console.error('Error fetching user data:', error);
+            req.user = null;
+        }
+    } else {
+        req.user = null;
+    }
     next();
 });
 
@@ -61,14 +85,16 @@ app.post('/api/login', async (req, res) => {
 
     try {
         const user = await User.findOne({ email });
-        
+
         if (user) {
             const isPasswordValid = await bcrypt.compare(password, user.password);
-            
+
             if (isPasswordValid) {
-                return res.json({ 
-                    message: 'Login successful', 
-                    redirectTo: '/dashboard', 
+                req.session.userId = user._id; // Store the user ID in the session
+
+                return res.json({
+                    message: 'Login successful',
+                    redirectTo: '/dashboard',
                     user: {
                         first_name: user.first_name,
                         last_name: user.last_name,
@@ -90,15 +116,15 @@ app.post('/api/login', async (req, res) => {
 
 app.get('/api/settings', async (req, res) => {
     try {
-      const settings = await Setting.find();
-      const settingsMap = {};
-      settings.forEach(setting => {
-        settingsMap[setting.key] = setting.value;
-      });
-      res.json(settingsMap);
+        const settings = await Setting.find();
+        const settingsMap = {};
+        settings.forEach(setting => {
+            settingsMap[setting.key] = setting.value;
+        });
+        res.json(settingsMap);
     } catch (error) {
-      console.error('Error fetching settings:', error);
-      res.status(500).json({ error: 'Failed to retrieve settings.' });
+        console.error('Error fetching settings:', error);
+        res.status(500).json({ error: 'Failed to retrieve settings.' });
     }
 });
 
@@ -188,7 +214,6 @@ app.get('/api/dashboard-data', async (req, res) => {
     }
 });
 
-
 app.get('/api/users', async (req, res) => {
     try {
         const users = await User.find().select('-password'); // Exclude the password field from the response
@@ -209,7 +234,13 @@ app.get('/api/users-students', async (req, res) => {
     }
 });
 
-
+app.get('/api/users/me', (req, res) => {
+    if (req.user) {
+        return res.json(req.user);
+    } else {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+});
 
 app.listen(3000, () => {
     console.log('Server is running on http://localhost:3000');

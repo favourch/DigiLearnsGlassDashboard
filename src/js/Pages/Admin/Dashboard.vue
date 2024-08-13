@@ -8,12 +8,17 @@
         <div>
           <h2 class="md:block hidden text-xl mb-1">{{ $t('Dashboard') }}</h2>
           <p class="mb-6 flex items-center leading-6">
-            <span class="mt-1 font-semibold md:font-normal text-xl">{{ `Welcome back, ${user.first_name}` }} 👋</span>
+            <span v-if="user && user.first_name" class="mt-1 font-semibold md:font-normal text-xl">
+              {{ `Welcome back, ${user.first_name}` }} 👋
+            </span>
+            <span v-else class="mt-1 font-semibold md:font-normal text-xl">
+              Welcome back 👋
+            </span>
           </p>
         </div>
         <div class="relative flex items-center">
           <VueDatePicker v-model="selectedDateRange" range @update:model="updateDateRange" />
-          <button @click="fetchDashboardData" class="ml-2 text-gray-500 hover:text-gray-700">
+          <button @click="toggleStateView" class="ml-2 text-gray-500 hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -59,7 +64,7 @@
           <h2 class="text-xl mb-4 flex justify-between items-center">
             {{ $t('Users by State') }}
             <button @click="toggleStateView" class="bg-primary py-2 px-3 rounded-lg text-white text-center">
-              {{ isShowingTop8 ? $t('Show Least 8') : $t('Show Top 8') }}
+              {{ isShowingTop4.value ? $t('Show Least 4') : $t('Show Top 4') }}
             </button>
           </h2>
           <apexchart type="bar" height="350" :options="stateChartOptions" :series="usersByStateSeries"></apexchart>
@@ -77,7 +82,6 @@
       </div>
     </div>
   </AppLayout>
-  <ProfileModal v-if="user" :user="user" :isOpen="isProfileModalOpen" />
 </template>
 
 <script setup>
@@ -91,10 +95,8 @@ import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 
 const store = useStore();
-const user = ref({
-  first_name: 'John',
-  last_name: 'Doe',
-});
+const user = ref(store.getters.getUser); // Get the user data from Vuex
+
 const isProfileModalOpen = ref(false);
 const isLoading = ref(true); // Add a loading state
 
@@ -105,7 +107,9 @@ const usersByStateSeries = ref([]);
 const usersByAgeSeries = ref([]);
 const heatMapSeries = ref([]);
 
-const isShowingTop8 = ref(true);
+const isShowingTop4 = ref(true); // Changed from isShowingTop8
+const top4States = ref([]);
+const least4States = ref([]);
 const selectedDateRange = ref(null);
 
 onMounted(() => {
@@ -135,12 +139,25 @@ async function fetchDashboardData() {
       { title: 'Total Messages', value: data.totalMessages },
     ];
 
-    // Update chart series data
+    // Process state data for top 4 and least 4
+    const sortedStates = data.usersByState.sort((a, b) => b.count - a.count);
+    top4States.value = sortedStates.slice(0, 4);
+    least4States.value = sortedStates.slice(-4);
+
+    // Set the initial state view to top 4
+    updateStateView(top4States.value);
+
+    // Process and update age group data
+    const ageGroups = data.usersByAge.map(item => item._id);
+    const ageCounts = data.usersByAge.map(item => item.count);
+
+    ageChartOptions.value.xaxis.categories = ageGroups;
+    usersByAgeSeries.value = [{ name: 'Users', data: ageCounts }];
+
+    // Update other chart series data
     usersByClassSeries.value = data.usersByClass.map(item => item.count);
-    pieChartOptions.value.labels = data.usersByClass.map(item => item._id); // Update class labels
+    pieChartOptions.value.labels = data.usersByClass.map(item => item._id);
     usersByGenderSeries.value = [{ name: 'Users', data: data.usersByGender.map(item => item.count) }];
-    usersByStateSeries.value = [{ name: 'States', data: data.usersByState.map(item => item.count) }];
-    usersByAgeSeries.value = [{ name: 'Users', data: data.usersByAge.map(item => item.count) }];
 
     // Update heatmap series data
     heatMapSeries.value = Object.keys(data.activityHeatMap).map(day => ({
@@ -150,8 +167,19 @@ async function fetchDashboardData() {
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
   } finally {
-    isLoading.value = false; // Stop loading once data is fetched
+    isLoading.value = false;
   }
+}
+
+function updateStateView(stateData) {
+  stateChartOptions.value.xaxis.categories = stateData.map(item => item._id);
+  usersByStateSeries.value = [{ name: 'States', data: stateData.map(item => item.count) }];
+}
+
+function toggleStateView() {
+  isShowingTop4.value = !isShowingTop4.value;
+  const stateData = isShowingTop4.value ? top4States.value : least4States.value;
+  updateStateView(stateData);
 }
 
 function updateDateRange(value) {
@@ -162,12 +190,6 @@ function updateDateRange(value) {
   fetchDashboardData().finally(() => {
     isLoading.value = false; // Stop the loading spinner once data is fetched
   });
-}
-
-
-function toggleStateView() {
-  isShowingTop8.value = !isShowingTop8.value;
-  // You might want to update the data based on whether top 8 or least 8 is being shown.
 }
 
 function formatNumber(value) {
@@ -204,7 +226,7 @@ const stateChartOptions = ref({
     type: 'bar',
   },
   xaxis: {
-    categories: ['Lagos', 'Kano', 'Oyo', 'Rivers', 'Kaduna', 'Enugu', 'Abuja', 'Benue'],
+    categories: [], // This will be dynamically set with state names
   },
   plotOptions: {
     bar: {
@@ -219,12 +241,12 @@ const ageChartOptions = ref({
     type: 'bar',
   },
   xaxis: {
-    categories: ['Under 10', '10-15', '15-20', '20-25', '25-30', '30+'],
+    categories: [], // This will be dynamically set with age groups
   },
   plotOptions: {
     bar: {
       horizontal: false,
-      columnWidth: '50%',
+      columnWidth: '70%',
     },
   },
 });
@@ -240,13 +262,12 @@ const heatMapChartOptions = ref({
       useFillColorAsStroke: true,
       colorScale: {
         ranges: [
-  { from: 0, to: 10, color: '#f3b4ab' },
-  { from: 11, to: 20, color: '#f79878' },  // Added colon after `from`
-  { from: 21, to: 30, color: '#f37a44' },  // Added colon after `from`
-  { from: 31, to: 40, color: '#f1621c' },  // Added colon after `from`
-  { from: 41, to: 50, color: '#f14000' },  // Added colon after `from`
-]
-
+          { from: 0, to: 10, color: '#f3b4ab' },
+          { from: 11, to: 20, color: '#f79878' },
+          { from: 21, to: 30, color: '#f37a44' },
+          { from: 31, to: 40, color: '#f1621c' },
+          { from: 41, to: 50, color: '#f14000' },
+        ],
       },
     },
   },
