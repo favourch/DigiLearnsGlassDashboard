@@ -93,6 +93,7 @@ import axios from 'axios';
 import ApexCharts from 'vue3-apexcharts';
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
+import chroma from 'chroma-js';  // Import chroma.js
 
 const store = useStore();
 const user = ref(store.getters.getUser); // Get the user data from Vuex
@@ -113,21 +114,37 @@ const least4States = ref([]);
 const selectedDateRange = ref(null);
 
 onMounted(() => {
+  console.log('Dashboard component mounted');  // Add log here to check if onMounted is triggered
   fetchDashboardData(); // Fetch data when the component is mounted
 });
 
 async function fetchDashboardData() {
   try {
+    console.log('fetchDashboardData called');  // Log the function call
+
     const params = {};
     if (selectedDateRange.value && selectedDateRange.value.length === 2) {
       params.startDate = selectedDateRange.value[0];
       params.endDate = selectedDateRange.value[1];
     }
 
-    const response = await axios.get(`${import.meta.env.VITE_API}/api/dashboard-data`, { params });
-    const data = response.data;
+    console.log('Request params:', params);  // Log the request params
 
-    // Update metrics
+    // Fetch both dashboard data and heatmap data concurrently
+    const [dashboardDataResponse, heatmapDataResponse] = await Promise.all([
+      axios.get(`${import.meta.env.VITE_API}/api/dashboard-data`, { params }),
+      axios.get(`${import.meta.env.VITE_API}/api/user-actions-heatmap`)
+    ]);
+
+    console.log('Dashboard data:', dashboardDataResponse.data);  // Log the dashboard data response
+    console.log('Heatmap data:', heatmapDataResponse.data);  // Log the heatmap data response
+
+    const data = dashboardDataResponse.data;
+    const heatMapData = heatmapDataResponse.data.heatMapData;
+    const maxCount = heatmapDataResponse.data.maxCount;
+    const minCount = heatmapDataResponse.data.minCount;
+
+    // Update metrics for the dashboard
     metrics.value = [
       { title: 'API Calls', value: data.apiCalls },
       { title: 'Total Subjects', value: data.totalSubjects },
@@ -138,14 +155,6 @@ async function fetchDashboardData() {
       { title: 'Subscribers', value: data.openTickets },
       { title: 'Total SMS', value: data.totalMessages },
     ];
-
-    // Process state data for top 4 and least 4
-    const sortedStates = data.usersByState.sort((a, b) => b.count - a.count);
-    top4States.value = sortedStates.slice(0, 4);
-    least4States.value = sortedStates.slice(-4);
-
-    // Set the initial state view to top 4
-    updateStateView(top4States.value);
 
     // Process and update age group data
     const ageGroups = data.usersByAge.map(item => item._id);
@@ -159,16 +168,46 @@ async function fetchDashboardData() {
     pieChartOptions.value.labels = data.usersByClass.map(item => item._id);
     usersByGenderSeries.value = [{ name: 'Users', data: data.usersByGender.map(item => item.count) }];
 
+    // Set the initial state view to top 4 states
+    const sortedStates = data.usersByState.sort((a, b) => b.count - a.count);
+    top4States.value = sortedStates.slice(0, 4);
+    least4States.value = sortedStates.slice(-4);
+    updateStateView(top4States.value);
+
     // Update heatmap series data
-    heatMapSeries.value = Object.keys(data.activityHeatMap).map(day => ({
-      name: day,
-      data: data.activityHeatMap[day].map((count, index) => ({ x: `${index} AM/PM`, y: count })),
+    heatMapSeries.value = heatMapData.map(day => ({
+      name: day.name,
+      data: day.data.map((count, hour) => ({ x: `${hour}:00`, y: count }))
     }));
+
+    // Generate and set the dynamic color scale for the heatmap
+    heatMapChartOptions.value.plotOptions.heatmap.colorScale.ranges = generateColorScale(minCount, maxCount, 5);
+
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
   } finally {
     isLoading.value = false;
   }
+}
+
+// Function to generate a dynamic color scale based on the data range and distribute it across the range of counts
+function generateColorScale(min, max, numberOfShades) {
+  const scale = chroma.scale(['#00A100', '#FF0000']).domain([min, max]);
+  const step = (max - min) / numberOfShades;
+  const ranges = [];
+
+  for (let i = 0; i < numberOfShades; i++) {
+    const from = min + i * step;
+    const to = from + step;
+    ranges.push({
+      from: Math.floor(from),
+      to: Math.floor(to),
+      color: scale(from).hex(),
+      name: `Activity ${Math.floor(from)} - ${Math.floor(to)}`
+    });
+  }
+
+  return ranges;
 }
 
 function updateStateView(stateData) {
@@ -261,13 +300,7 @@ const heatMapChartOptions = ref({
       radius: 0,
       useFillColorAsStroke: true,
       colorScale: {
-        ranges: [
-          { from: 0, to: 10, color: '#f3b4ab' },
-          { from: 11, to: 20, color: '#f79878' },
-          { from: 21, to: 30, color: '#f37a44' },
-          { from: 31, to: 40, color: '#f1621c' },
-          { from: 41, to: 50, color: '#f14000' },
-        ],
+        ranges: [] // This will be dynamically populated
       },
     },
   },
@@ -275,4 +308,6 @@ const heatMapChartOptions = ref({
     enabled: false,
   },
 });
+
 </script>
+

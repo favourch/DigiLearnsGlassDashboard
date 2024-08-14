@@ -181,7 +181,7 @@
       </div>
     </div>
 
-    <a class="border-2 border-primary text-sm rounded-[5px] mb-1 m-3 py-2 px-4 flex items-center justify-between cursor-pointer" href="/admin/addons">
+    <!-- <a class="border-2 border-primary text-sm rounded-[5px] mb-1 m-3 py-2 px-4 flex items-center justify-between cursor-pointer" href="/admin/addons">
       <div class="flex items-center space-x-3">
         <span>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
@@ -199,7 +199,7 @@
           </path>
         </svg>
       </span>
-    </a>
+    </a> -->
 
     <div class="flex items-center m-3 p-2 rounded-[5px] h-20 py-1 md:py-1 mt-2 space-x-4 justify-between bg-slate-50">
       <div class="flex space-x-2">
