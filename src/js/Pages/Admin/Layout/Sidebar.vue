@@ -181,7 +181,7 @@
       </div>
     </div>
 
-    <!-- <a class="border-2 border-primary text-sm rounded-[5px] mb-1 m-3 py-2 px-4 flex items-center justify-between cursor-pointer" href="/admin/addons">
+    <a class="border-2 border-primary text-sm rounded-[5px] mb-1 m-3 py-2 px-4 flex items-center justify-between cursor-pointer" href="/admin/addons">
       <div class="flex items-center space-x-3">
         <span>
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">
@@ -199,39 +199,43 @@
           </path>
         </svg>
       </span>
-    </a> -->
+    </a>
 
     <div class="flex items-center m-3 p-2 rounded-[5px] h-20 py-1 md:py-1 mt-2 space-x-4 justify-between bg-slate-50">
       <div class="flex space-x-2">
-          <div class="rounded-full p-1">
-              <img class="rounded-full w-9 h-9" :src="'https://res.cloudinary.com/dzsp4g9vd/image/upload/v1723145284/digilearns/profile/Gideon-Olanrewaju.png'">
-              
-          </div>
-          <div>
-              <h2 class="text-[18px] capitalize truncate w-[6em]">Gideon Olanrewaju</h2>
-              <span class="flex items-center space-x-1">
-                  <span @click="openModal" class="text-sm hover:underline dark:text-gray-400 cursor-pointer">{{ $t('View profile') }}</span>
-              </span>
-          </div>
+        <div class="rounded-full p-1">
+          <img class="rounded-full w-9 h-9" :src="user.avatar || 'https://res.cloudinary.com/dzsp4g9vd/image/upload/v1723145284/digilearns/profile/Gideon-Olanrewaju.png'">
+        </div>
+        <div>
+          <h2 class="text-[18px] capitalize truncate w-[6em]">{{ user.first_name }} {{ user.last_name }}</h2>
+          <span class="flex items-center space-x-1">
+            <span @click="openModal" class="text-sm hover:underline dark:text-gray-400 cursor-pointer">{{ $t('View profile') }}</span>
+          </span>
+        </div>
       </div>
       <Link href="/logout" class="hover:bg-[#F6F7F9] hover:rounded-full w-[fit-content] p-2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 15l3-3m0 0l-3-3m3 3H4m5-4.751V7.2c0-1.12 0-1.68.218-2.108c.192-.377.497-.682.874-.874C10.52 4 11.08 4 12.2 4h4.6c1.12 0 1.68 0 2.107.218c.377.192.683.497.875.874c.218.427.218.987.218 2.105v9.607c0 1.118 0 1.677-.218 2.104a2.002 2.002 0 0 1-.875.874c-.427.218-.986.218-2.104.218h-4.606c-1.118 0-1.678 0-2.105-.218a2 2 0 0 1-.874-.874C9 18.48 9 17.92 9 16.8v-.05"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="2em" height="2em" viewBox="0 0 24 24">
+          <path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m12 15l3-3m0 0l-3-3m3 3H4m5-4.751V7.2c0-1.12 0-1.68.218-2.108c.192-.377.497-.682.874-.874C10.52 4 11.08 4 12.2 4h4.6c1.12 0 1.68 0 2.107.218c.377.192.683.497.875.874c.218.427.218.987.218 2.105v9.607c0 1.118 0 1.677-.218 2.104a2.002 2.002 0 0 1-.875.874c-.427.218-.986.218-2.104.218h-4.606c-1.118 0-1.678 0-2.105-.218a2 2 0 0 1-.874-.874C9 18.48 9 17.92 9 16.8v-.05"/>
+        </svg>
       </Link>
-  </div>
+    </div>
   </aside>
 </template>
 
 <script>
-import { mapGetters } from 'vuex';
-
 export default {
   name: "Sidebar",
-  computed: {
-    ...mapGetters(['getUser']),
+  data() {
+    return {
+      user: JSON.parse(localStorage.getItem('user')) || {}
+    };
   },
   methods: {
     toggleSidebar() {
       this.$emit('toggleSidebar');
+    },
+    openModal() {
+      // Logic to open the modal
     },
   },
 };

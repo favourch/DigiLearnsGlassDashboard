@@ -16,9 +16,9 @@
             </span>
           </p>
         </div>
-        <div class="relative flex items-center">
+        <div class="relative flex items-center" style="width: 30%">
           <VueDatePicker v-model="selectedDateRange" range @update:model="updateDateRange" />
-          <button @click="toggleStateView" class="ml-2 text-gray-500 hover:text-gray-700">
+          <button @click="refreshDashboardData" class="ml-2 text-gray-500 hover:text-gray-700">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
             </svg>
@@ -86,20 +86,20 @@
 
 <script setup>
 import AppLayout from './Layout/App.vue';
-import Spinner from './Spinner.vue';  // Import Spinner component
+import Spinner from './Spinner.vue';
 import { ref, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import axios from 'axios';
 import ApexCharts from 'vue3-apexcharts';
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
-import chroma from 'chroma-js';  // Import chroma.js
+import chroma from 'chroma-js';
 
 const store = useStore();
-const user = ref(store.getters.getUser); // Get the user data from Vuex
+const user = ref(store.getters.getUser);
 
 const isProfileModalOpen = ref(false);
-const isLoading = ref(true); // Add a loading state
+const isLoading = ref(true);
 
 const metrics = ref([]);
 const usersByClassSeries = ref([]);
@@ -108,43 +108,65 @@ const usersByStateSeries = ref([]);
 const usersByAgeSeries = ref([]);
 const heatMapSeries = ref([]);
 
-const isShowingTop4 = ref(true); // Changed from isShowingTop8
+const isShowingTop4 = ref(true);
 const top4States = ref([]);
 const least4States = ref([]);
 const selectedDateRange = ref(null);
 
-onMounted(() => {
-  console.log('Dashboard component mounted');  // Add log here to check if onMounted is triggered
-  fetchDashboardData(); // Fetch data when the component is mounted
+onMounted(async () => {
+  try {
+    console.log('Dashboard component mounted');
+
+    // Fetch the earliest start date and current date
+    const earliestDateResponse = await axios.get(`${import.meta.env.VITE_API}/api/earliest-start-date`);
+    const earliestDate = new Date(earliestDateResponse.data.startDate); 
+    const currentDate = new Date(); 
+
+    selectedDateRange.value = [earliestDate, currentDate];
+
+    fetchDashboardData();
+  } catch (error) {
+    console.error('Error fetching the earliest start date:', error);
+  }
 });
 
 async function fetchDashboardData() {
   try {
-    console.log('fetchDashboardData called');  // Log the function call
+    console.log('fetchDashboardData called');
 
     const params = {};
     if (selectedDateRange.value && selectedDateRange.value.length === 2) {
-      params.startDate = selectedDateRange.value[0];
-      params.endDate = selectedDateRange.value[1];
+      const startDate = new Date(selectedDateRange.value[0]);
+      const endDate = new Date(selectedDateRange.value[1]);
+
+      if (!isNaN(startDate) && !isNaN(endDate)) {
+        params.startDate = startDate.toISOString(); 
+        params.endDate = endDate.toISOString(); 
+      } else {
+        console.error('Invalid date range selected');
+        return;
+      }
+    } else {
+      const initialResponse = await axios.get(`${import.meta.env.VITE_API}/api/dashboard-data-initial-dates`);
+      params.startDate = initialResponse.data.startDate;
+      params.endDate = new Date().toISOString();
     }
 
-    console.log('Request params:', params);  // Log the request params
+    console.log('Request params:', params);
 
-    // Fetch both dashboard data and heatmap data concurrently
     const [dashboardDataResponse, heatmapDataResponse] = await Promise.all([
       axios.get(`${import.meta.env.VITE_API}/api/dashboard-data`, { params }),
-      axios.get(`${import.meta.env.VITE_API}/api/user-actions-heatmap`)
+      axios.get(`${import.meta.env.VITE_API}/api/user-actions-heatmap`, { params })
     ]);
 
-    console.log('Dashboard data:', dashboardDataResponse.data);  // Log the dashboard data response
-    console.log('Heatmap data:', heatmapDataResponse.data);  // Log the heatmap data response
+    console.log('Dashboard data:', dashboardDataResponse.data);
+    console.log('Heatmap data:', heatmapDataResponse.data);
 
     const data = dashboardDataResponse.data;
     const heatMapData = heatmapDataResponse.data.heatMapData;
     const maxCount = heatmapDataResponse.data.maxCount;
     const minCount = heatmapDataResponse.data.minCount;
 
-    // Update metrics for the dashboard
     metrics.value = [
       { title: 'API Calls', value: data.apiCalls },
       { title: 'Total Subjects', value: data.totalSubjects },
@@ -156,31 +178,26 @@ async function fetchDashboardData() {
       { title: 'Total SMS', value: data.totalMessages },
     ];
 
-    // Process and update age group data
     const ageGroups = data.usersByAge.map(item => item._id);
     const ageCounts = data.usersByAge.map(item => item.count);
 
     ageChartOptions.value.xaxis.categories = ageGroups;
     usersByAgeSeries.value = [{ name: 'Users', data: ageCounts }];
 
-    // Update other chart series data
     usersByClassSeries.value = data.usersByClass.map(item => item.count);
     pieChartOptions.value.labels = data.usersByClass.map(item => item._id);
     usersByGenderSeries.value = [{ name: 'Users', data: data.usersByGender.map(item => item.count) }];
 
-    // Set the initial state view to top 4 states
     const sortedStates = data.usersByState.sort((a, b) => b.count - a.count);
     top4States.value = sortedStates.slice(0, 4);
     least4States.value = sortedStates.slice(-4);
     updateStateView(top4States.value);
 
-    // Update heatmap series data
     heatMapSeries.value = heatMapData.map(day => ({
       name: day.name,
       data: day.data.map((count, hour) => ({ x: `${hour}:00`, y: count }))
     }));
 
-    // Generate and set the dynamic color scale for the heatmap
     heatMapChartOptions.value.plotOptions.heatmap.colorScale.ranges = generateColorScale(minCount, maxCount, 5);
 
   } catch (error) {
@@ -190,7 +207,11 @@ async function fetchDashboardData() {
   }
 }
 
-// Function to generate a dynamic color scale based on the data range and distribute it across the range of counts
+function refreshDashboardData() {
+  isLoading.value = true;
+  fetchDashboardData();
+}
+
 function generateColorScale(min, max, numberOfShades) {
   const scale = chroma.scale(['#00A100', '#FF0000']).domain([min, max]);
   const step = (max - min) / numberOfShades;
@@ -223,12 +244,7 @@ function toggleStateView() {
 
 function updateDateRange(value) {
   selectedDateRange.value = value;
-  isLoading.value = true; // Start the loading spinner
-
-  // Fetch the updated data
-  fetchDashboardData().finally(() => {
-    isLoading.value = false; // Stop the loading spinner once data is fetched
-  });
+  refreshDashboardData();
 }
 
 function formatNumber(value) {
@@ -239,7 +255,7 @@ const pieChartOptions = ref({
   chart: {
     type: 'pie',
   },
-  labels: [], // This will be updated dynamically
+  labels: [],
   legend: {
     position: 'bottom',
   },
@@ -265,7 +281,7 @@ const stateChartOptions = ref({
     type: 'bar',
   },
   xaxis: {
-    categories: [], // This will be dynamically set with state names
+    categories: [],
   },
   plotOptions: {
     bar: {
@@ -280,7 +296,7 @@ const ageChartOptions = ref({
     type: 'bar',
   },
   xaxis: {
-    categories: [], // This will be dynamically set with age groups
+    categories: [],
   },
   plotOptions: {
     bar: {
@@ -300,7 +316,7 @@ const heatMapChartOptions = ref({
       radius: 0,
       useFillColorAsStroke: true,
       colorScale: {
-        ranges: [] // This will be dynamically populated
+        ranges: []
       },
     },
   },
@@ -310,4 +326,5 @@ const heatMapChartOptions = ref({
 });
 
 </script>
+
 
