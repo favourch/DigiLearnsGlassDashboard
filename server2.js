@@ -341,7 +341,7 @@ app.get('/api/user-actions-heatmap', async (req, res) => {
             minCount
         });
     } catch (error) {
-        console.error('Error fetching user actions for heatmap:', error);
+        console.error('Error fetching user actions for heatmap kindly check log:', error);
         res.status(500).json({ error: 'Failed to retrieve user actions for heatmap.' });
     }
 });
