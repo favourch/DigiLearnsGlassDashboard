@@ -6,14 +6,46 @@ import Students from '../js/Pages/Admin/Team/Students.vue';
 import Show from '../js/Pages/Admin/Team/Show.vue';
 
 const routes = [
-  { path: '/', redirect: '/login' },
-  { path: '/login', component: Login },
-  { path: '/dashboard', component: Dashboard },
-  { path: '/admin/organizations/create', component: Dashboard },
-  { path: '/admin/users/create', component: Dashboard },
-  { path: '/users', component: Users },
-  { path: '/students', component: Students },
-  { path: '/users/:id', component: Show } // Dynami
+  {
+    path: '/',
+    redirect: '/login',
+    meta: { title: 'DigiLearns' },
+  },
+  {
+    path: '/login',
+    component: Login,
+    meta: { title: 'Login - DigiLearns' },
+  },
+  {
+    path: '/dashboard',
+    component: Dashboard,
+    meta: { title: 'Dashboard' },
+  },
+  {
+    path: '/admin/organizations/create',
+    component: Dashboard,
+    meta: { title: 'Create Organization - My Application' },
+  },
+  {
+    path: '/admin/users/create',
+    component: Dashboard,
+    meta: { title: 'Create User - My Application' },
+  },
+  {
+    path: '/users',
+    component: Users,
+    meta: { title: 'Manage Users' },
+  },
+  {
+    path: '/students',
+    component: Students,
+    meta: { title: 'Manage Students' },
+  },
+  {
+    path: '/users/:id',
+    component: Show,
+    meta: { title: 'User Details' },
+  }
 ];
 
 const router = createRouter({
@@ -24,17 +56,19 @@ const router = createRouter({
 // Auth Guard
 router.beforeEach((to, from, next) => {
   const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
-  const isAuthenticated = !!localStorage.getItem(authTokenKey); // Check if token exists
+  const isAuthenticated = !!localStorage.getItem(authTokenKey);
 
   if (to.path !== '/login' && !isAuthenticated) {
-      next('/login'); // Redirect to login if not authenticated
+    next('/login');
   } else if (to.path === '/login' && isAuthenticated) {
-      next('/dashboard'); // Redirect to dashboard if already authenticated
-  }  else {
-      next(); // Allow navigation
+    next('/dashboard');
+  } else {
+    // Set the document title from the route meta
+    if (to.meta.title) {
+      document.title = to.meta.title;
+    }
+    next();
   }
 });
-
-
 
 export default router;

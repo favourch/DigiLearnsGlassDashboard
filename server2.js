@@ -520,6 +520,60 @@ app.get('/api/earliest-start-date', async (req, res) => {
     }
 });
 
+app.get('/api/list-students', async (req, res) => {
+    try {
+        const { search, limit = 100, page = 1 } = req.query;
+
+        // Calculate the number of documents to skip
+        const skip = (parseInt(page) - 1) * parseInt(limit);
+
+        // Build the query object
+        let query = {};
+
+        // If there's a search query, add it to the filter
+        if (search) {
+            query = {
+                $or: [
+                    { first_name: { $regex: search, $options: 'i' } }, // Case-insensitive search
+                    { last_name: { $regex: search, $options: 'i' } },
+                    { phone: { $regex: search, $options: 'i' } },
+                    { class: { $regex: search, $options: 'i' } },
+                    { state: { $regex: search, $options: 'i' } },
+                    { gender: { $regex: search, $options: 'i' } }
+                ]
+            };
+        }
+
+        // Fetch the total count of documents
+        const totalItems = await mongoose.connection.collection('users_students').countDocuments(query);
+
+        // Fetch the students with pagination
+        const students = await mongoose.connection.collection('users_students')
+            .find(query)
+            .skip(skip)
+            .limit(parseInt(limit))
+            .toArray();
+
+        // Calculate total pages
+        const totalPages = Math.ceil(totalItems / limit);
+
+        res.json({
+            data: students,
+            pagination: {
+                total: totalItems,
+                per_page: parseInt(limit),
+                current_page: parseInt(page),
+                last_page: totalPages
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching students:', error);
+        res.status(500).json({ error: 'Failed to retrieve students.' });
+    }
+});
+
+
+
 
 
 app.listen(3000, () => {

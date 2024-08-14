@@ -1,15 +1,14 @@
 import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
-import { store } from './store'; // Import the store
+import { store } from './store';
 import { createI18n } from 'vue-i18n';
 import VueApexCharts from 'vue3-apexcharts';
 import axios from 'axios';
+import { createMetaManager, defaultConfig, useMeta } from 'vue-meta'; // Import vue-meta
 
-// Import your global CSS and JS files
 import './css/app.css';
 
-// Function to load locale messages from the public directory
 async function loadLocaleMessages() {
   const messages = await axios.get('/lang/en.json');
   return {
@@ -18,10 +17,8 @@ async function loadLocaleMessages() {
 }
 
 async function initApp() {
-  // Load messages asynchronously
   const messages = await loadLocaleMessages();
 
-  // i18n setup with dynamic message loading
   const i18n = createI18n({
     legacy: false,
     locale: 'en',
@@ -31,13 +28,15 @@ async function initApp() {
 
   const app = createApp(App);
 
-  app.use(store)  // Register the store
+  const metaManager = createMetaManager();
+
+  app.use(store)
      .use(router)
      .use(VueApexCharts)
-     .use(i18n);
+     .use(i18n)
+     .use(metaManager); // Use metaManager for handling SEO
 
   app.mount('#app');
 }
 
-// Initialize the app
 initApp();
