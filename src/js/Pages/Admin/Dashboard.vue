@@ -88,15 +88,14 @@
 import AppLayout from './Layout/App.vue';
 import Spinner from './Spinner.vue';
 import { ref, onMounted } from 'vue';
-import { useStore } from 'vuex';
 import axios from 'axios';
 import ApexCharts from 'vue3-apexcharts';
 import VueDatePicker from '@vuepic/vue-datepicker';
 import '@vuepic/vue-datepicker/dist/main.css';
 import chroma from 'chroma-js';
 
-const store = useStore();
-const user = ref(store.getters.getUser);
+// Retrieve user data from localStorage
+const user = ref(JSON.parse(localStorage.getItem('user')));
 
 const isProfileModalOpen = ref(false);
 const isLoading = ref(true);
@@ -324,7 +323,7 @@ const heatMapChartOptions = ref({
     enabled: false,
   },
 });
-
 </script>
+
 
 

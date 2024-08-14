@@ -140,7 +140,6 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useStore } from 'vuex'; // Assuming you're using Vuex
 import axios from 'axios';
 import FormInput from '@/Components/FormInput.vue';
 
@@ -160,7 +159,6 @@ const form = ref({
 
 const isLoading = ref(false);
 const router = useRouter();
-const store = useStore();
 
 const fetchSettings = async () => {
   try {
@@ -172,37 +170,36 @@ const fetchSettings = async () => {
 };
 
 const submitForm = async () => {
-isLoading.value = true;
+  isLoading.value = true;
 
-try {
+  try {
     const apiURL = import.meta.env.VITE_API_LOGIN_URL;
     const response = await axios.post(apiURL, {
-        email: form.value.email,
-        password: form.value.password,
+      email: form.value.email,
+      password: form.value.password,
     });
 
     if (response.data.user) {
-        // Dispatch the user data to Vuex
-        store.dispatch('setUser', response.data.user);
+      // Store user data in localStorage
+      localStorage.setItem('user', JSON.stringify(response.data.user));
 
-        // Store a token or flag in localStorage to mark the user as authenticated
-        const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
-        localStorage.setItem(authTokenKey, 'your-auth-token-or-true');
+      // Store a token or flag in localStorage to mark the user as authenticated
+      const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
+      localStorage.setItem(authTokenKey, 'your-auth-token-or-true');
 
-        // Redirect to the dashboard
-        window.location.href = response.data.redirectTo;
+      // Redirect to the dashboard
+      window.location.href = response.data.redirectTo;
     } else {
-        form.value.errors = { email: 'Login failed. Please try again.' };
+      form.value.errors = { email: 'Login failed. Please try again.' };
     }
-} catch (error) {
+  } catch (error) {
     if (error.response && error.response.data.message) {
-        form.value.errors = { email: error.response.data.message };
+      form.value.errors = { email: error.response.data.message };
     }
-} finally {
+  } finally {
     isLoading.value = false;
-}
+  }
 };
-
 
 onMounted(() => {
   fetchSettings();

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@headlessui/vue": "^1.7.22",
+    "@heroicons/vue": "^2.1.5",
     "@inertiajs/vue3": "^1.2.0",
     "@vuepic/vue-datepicker": "^9.0.1",
     "apexcharts": "^3.52.0",
@@ -23,6 +24,7 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
+    "heroicons": "^2.1.5",
     "mongoose": "^8.5.2",
     "mysql2": "^3.11.0",
     "node-cache": "^5.1.2",

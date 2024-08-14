@@ -8,7 +8,6 @@
       ListboxOption,
     } from '@headlessui/vue'
     import { CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/20/solid';
-    import { trans } from 'laravel-vue-i18n';
 
     const props = defineProps({
       options: Array,
