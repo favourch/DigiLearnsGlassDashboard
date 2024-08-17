@@ -305,48 +305,6 @@ app.get('/api/users/me', (req, res) => {
     }
 });
 
-// app.get('/api/user-actions-heatmap', async (req, res) => {
-//     try {
-//         // Aggregate user actions by day of week and hour
-//         const userActions = await mongoose.connection.collection('user_actions').aggregate([
-//             {
-//                 $group: {
-//                     _id: {
-//                         dayOfWeek: { $dayOfWeek: "$action_date" },
-//                         hour: { $hour: "$action_date" }
-//                     },
-//                     count: { $sum: 1 }
-//                 }
-//             }
-//         ]).toArray();
-
-//         const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-//         const heatMapData = daysOfWeek.map(day => ({
-//             name: day,
-//             data: Array(24).fill(0) // Initialize array of 24 zeros for each hour
-//         }));
-
-//         userActions.forEach(action => {
-//             const dayIndex = action._id.dayOfWeek - 1; // $dayOfWeek returns 1 for Sunday, etc.
-//             const hour = action._id.hour;
-//             heatMapData[dayIndex].data[hour] = action.count;
-//         });
-
-//         const maxCount = Math.max(...heatMapData.flatMap(day => day.data));
-//         const minCount = Math.min(...heatMapData.flatMap(day => day.data));
-
-//         res.json({
-//             heatMapData,
-//             maxCount,
-//             minCount
-//         });
-//     } catch (error) {
-//         console.error('Error fetching user actions for heatmap kindly check log:', error);
-//         res.status(500).json({ error: 'Failed to retrieve user actions for heatmap.' });
-//     }
-// });
-
-
 
 
 app.get('/api/user-actions', async (req, res) => {
@@ -573,6 +531,21 @@ app.get('/api/list-students', async (req, res) => {
 });
 
 
+app.post('/api/logout', (req, res) => {
+    // Destroy the session
+    req.session.destroy(err => {
+        if (err) {
+            console.error('Logout error:', err);
+            return res.status(500).json({ message: 'Failed to logout' });
+        }
+
+        // Optionally clear the client-side cookie (if you want)
+        res.clearCookie('connect.sid'); // Default session cookie name
+
+        // Send a successful response
+        res.json({ message: 'Logout successful' });
+    });
+});
 
 
 

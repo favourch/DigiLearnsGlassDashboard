@@ -14,15 +14,6 @@
           </router-link>
         </div>
         <h1 class="text-2xl text-center">Login to your account</h1>
-        <div class="text-center text-sm text-slate-500">
-          Don't have an account?
-          <router-link
-            to="/signup"
-            class="text-sm text-primary-600 dark:text-primary-500 border-b hover:border-gray-500"
-          >
-            Create one here
-          </router-link>
-        </div>
         <form @submit.prevent="submitForm" class="mt-5">
           <div class="mt-5 space-y-4">
             <FormInput
@@ -110,28 +101,6 @@
             </button>
           </div>
         </form>
-        <div
-          v-if="companyConfig.allow_facebook_login || companyConfig.allow_google_login"
-          class="flex justify-center my-6"
-        >
-          <span class="text-sm text-gray-500 px-4 text-center"
-            >Or continue with</span
-          >
-        </div>
-        <div class="flex justify-center gap-4">
-          <a
-            v-if="companyConfig.allow_facebook_login"
-            href="/social-login/facebook"
-            class="border rounded-full p-2 cursor-pointer"
-            ><!-- Facebook SVG Icon --></a
-          >
-          <a
-            v-if="companyConfig.allow_google_login"
-            href="/social-login/google"
-            class="border rounded-full p-2 cursor-pointer"
-            ><!-- Google SVG Icon --></a
-          >
-        </div>
       </div>
     </div>
   </div>
@@ -165,9 +134,15 @@ const fetchSettings = async () => {
     const response = await axios.get(import.meta.env.VITE_API_SETTINGS_URL);
     companyConfig.value = response.data;
   } catch (error) {
-    console.error('Failed to fetch settings:', error);
+    if (!navigator.onLine) {
+      alert('You are offline. Please check your internet connection.');
+    } else {
+      console.error('Failed to fetch settings:', error);
+    }
   }
 };
+
+
 
 const submitForm = async () => {
   isLoading.value = true;
@@ -180,15 +155,13 @@ const submitForm = async () => {
     });
 
     if (response.data.user) {
-      // Store user data in localStorage
       localStorage.setItem('user', JSON.stringify(response.data.user));
-
-      // Store a token or flag in localStorage to mark the user as authenticated
       const authTokenKey = import.meta.env.VITE_AUTH_TOKEN_KEY;
       localStorage.setItem(authTokenKey, 'your-auth-token-or-true');
 
-      // Redirect to the dashboard
+      // Redirect and force reload
       window.location.href = response.data.redirectTo;
+      window.location.reload();
     } else {
       form.value.errors = { email: 'Login failed. Please try again.' };
     }
@@ -200,6 +173,8 @@ const submitForm = async () => {
     isLoading.value = false;
   }
 };
+
+
 
 onMounted(() => {
   fetchSettings();

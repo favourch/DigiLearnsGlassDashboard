@@ -4,6 +4,7 @@ import Dashboard from '../js/Pages/Admin/Dashboard.vue';
 import Users from '../js/Pages/Admin/Team/Index.vue';
 import Students from '../js/Pages/Admin/Team/Students.vue';
 import Show from '../js/Pages/Admin/Team/Show.vue';
+import Customer from '../js/Pages/Admin/Customer/Index.vue';
 
 const routes = [
   {
@@ -40,6 +41,11 @@ const routes = [
     path: '/students',
     component: Students,
     meta: { title: 'Manage Students' },
+  },
+  {
+    path: '/customer',
+    component: Customer,
+    meta: { title: 'Manage Customers' },
   },
   {
     path: '/users/:id',

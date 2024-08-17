@@ -61,8 +61,13 @@
       </div>
       <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
         <div>
-          <h2 class="text-xl mb-4">{{ $t('Users by State') }}</h2>
-          <apexchart type="treemap" height="350" :options="treeMapOptions" :series="treeMapSeries"></apexchart>
+          <h2 class="text-xl mb-4 flex justify-between items-center">
+            {{ $t('Users by State') }}
+            <button @click="toggleStateView" class="bg-primary py-2 px-3 rounded-lg text-white text-center">
+              {{ isShowingTop4.value ? $t('Show Least 4') : $t('Show Top 4') }}
+            </button>
+          </h2>
+          <apexchart type="bar" height="350" :options="stateChartOptions" :series="usersByStateSeries"></apexchart>
         </div>
         <div>
           <h2 class="text-xl mb-4">{{ $t('Users by Age') }}</h2>
@@ -82,7 +87,7 @@
 <script setup>
 import AppLayout from './Layout/App.vue';
 import Spinner from './Spinner.vue';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted } from 'vue';
 import axios from 'axios';
 import ApexCharts from 'vue3-apexcharts';
 import VueDatePicker from '@vuepic/vue-datepicker';
@@ -92,13 +97,19 @@ import chroma from 'chroma-js';
 // Retrieve user data from localStorage
 const user = ref(JSON.parse(localStorage.getItem('user')));
 
+const isProfileModalOpen = ref(false);
 const isLoading = ref(true);
+
 const metrics = ref([]);
 const usersByClassSeries = ref([]);
 const usersByGenderSeries = ref([]);
-const usersByState = ref([]);
+const usersByStateSeries = ref([]);
 const usersByAgeSeries = ref([]);
 const heatMapSeries = ref([]);
+
+const isShowingTop4 = ref(true);
+const top4States = ref([]);
+const least4States = ref([]);
 const selectedDateRange = ref(null);
 
 onMounted(async () => {
@@ -152,6 +163,8 @@ async function fetchDashboardData() {
 
     const data = dashboardDataResponse.data;
     const heatMapData = heatmapDataResponse.data.heatMapData;
+    const maxCount = heatmapDataResponse.data.maxCount;
+    const minCount = heatmapDataResponse.data.minCount;
 
     metrics.value = [
       { title: 'API Calls', value: data.apiCalls },
@@ -164,41 +177,68 @@ async function fetchDashboardData() {
       { title: 'Total SMS', value: data.totalMessages },
     ];
 
+    const ageGroups = data.usersByAge.map(item => item._id);
+    const ageCounts = data.usersByAge.map(item => item.count);
+
+    ageChartOptions.value.xaxis.categories = ageGroups;
+    usersByAgeSeries.value = [{ name: 'Users', data: ageCounts }];
+
     usersByClassSeries.value = data.usersByClass.map(item => item.count);
     pieChartOptions.value.labels = data.usersByClass.map(item => item._id);
     usersByGenderSeries.value = [{ name: 'Users', data: data.usersByGender.map(item => item.count) }];
-    usersByState.value = data.usersByState;
 
-    const ageGroups = data.usersByAge.map(item => item._id);
-    const ageCounts = data.usersByAge.map(item => item.count);
-    ageChartOptions.value.xaxis.categories = ageGroups;
-    usersByAgeSeries.value = [{ name: 'Users', data: ageCounts }];
+    const sortedStates = data.usersByState.sort((a, b) => b.count - a.count);
+    top4States.value = sortedStates.slice(0, 4);
+    least4States.value = sortedStates.slice(-4);
+    updateStateView(top4States.value);
 
     heatMapSeries.value = heatMapData.map(day => ({
       name: day.name,
       data: day.data.map((count, hour) => ({ x: `${hour}:00`, y: count }))
     }));
 
-    isLoading.value = false;
+    heatMapChartOptions.value.plotOptions.heatmap.colorScale.ranges = generateColorScale(minCount, maxCount, 5);
+
   } catch (error) {
     console.error('Error fetching dashboard data:', error);
+  } finally {
+    isLoading.value = false;
   }
 }
-
-const treeMapSeries = computed(() => {
-  return [
-    {
-      data: usersByState.value.map(state => ({
-        x: state._id,
-        y: state.count,
-      })),
-    },
-  ];
-});
 
 function refreshDashboardData() {
   isLoading.value = true;
   fetchDashboardData();
+}
+
+function generateColorScale(min, max, numberOfShades) {
+  const scale = chroma.scale(['#00A100', '#FF0000']).domain([min, max]);
+  const step = (max - min) / numberOfShades;
+  const ranges = [];
+
+  for (let i = 0; i < numberOfShades; i++) {
+    const from = min + i * step;
+    const to = from + step;
+    ranges.push({
+      from: Math.floor(from),
+      to: Math.floor(to),
+      color: scale(from).hex(),
+      name: `Activity ${Math.floor(from)} - ${Math.floor(to)}`
+    });
+  }
+
+  return ranges;
+}
+
+function updateStateView(stateData) {
+  stateChartOptions.value.xaxis.categories = stateData.map(item => item._id);
+  usersByStateSeries.value = [{ name: 'States', data: stateData.map(item => item.count) }];
+}
+
+function toggleStateView() {
+  isShowingTop4.value = !isShowingTop4.value;
+  const stateData = isShowingTop4.value ? top4States.value : least4States.value;
+  updateStateView(stateData);
 }
 
 function updateDateRange(value) {
@@ -230,6 +270,21 @@ const barChartOptions = ref({
   plotOptions: {
     bar: {
       horizontal: false,
+      columnWidth: '50%',
+    },
+  },
+});
+
+const stateChartOptions = ref({
+  chart: {
+    type: 'bar',
+  },
+  xaxis: {
+    categories: [],
+  },
+  plotOptions: {
+    bar: {
+      horizontal: true,
       columnWidth: '50%',
     },
   },
@@ -268,21 +323,7 @@ const heatMapChartOptions = ref({
     enabled: false,
   },
 });
-
-const treeMapOptions = ref({
-  chart: {
-    type: 'treemap',
-  },
-  title: {
-  },
-  plotOptions: {
-    treemap: {
-      distributed: true,
-      enableShades: true,
-    },
-  },
-  legend: {
-    show: false,
-  },
-});
 </script>
+
+
+
