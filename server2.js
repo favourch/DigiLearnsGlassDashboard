@@ -24,31 +24,161 @@ app.use(session({
 const cache = new NodeCache({ stdTTL: 300 });
 
 // MongoDB connection
-mongoose.connect(process.env.MONGO_URI, {
-    retryWrites: true,
-    w: 'majority',
-    serverSelectionTimeoutMS: 5000,
+const mongoUri = process.env.MONGO_URI;
+// Updated connection options removing unsupported options
+const mongoOptions = {
+    serverSelectionTimeoutMS: 30000,
     socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+    minPoolSize: 2,
+    authSource: 'admin',
+    authMechanism: 'SCRAM-SHA-1',
+    directConnection: true,
     family: 4
-}).then(() => {
-    console.log('Connected to MongoDB');
-}).catch(err => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-});
+};
 
-// Add connection event handlers
+// At the top of your file, add:
+let useStaticData = false;
+
+// Modify the connectDB function
+const connectDB = async () => {
+    try {
+        await mongoose.connect(process.env.MONGO_URI, mongoOptions);
+        console.log('Connected to MongoDB successfully');
+        useStaticData = false;
+        return true;
+    } catch (err) {
+        console.error('MongoDB connection error:', err);
+        if (err.name === 'MongoServerSelectionError') {
+            console.error('Connection details:', {
+                uri: process.env.MONGO_URI.replace(/:[^:@]*@/, ':****@'),
+                options: mongoOptions,
+                error: err.message,
+                reason: err.reason
+            });
+        }
+        useStaticData = true;
+        return false;
+    }
+};
+
+// Modified connection event handlers with exponential backoff
+let retryAttempt = 0;
+const maxRetryAttempts = 5;
+const baseRetryDelay = 5000;
+
 mongoose.connection.on('error', err => {
     console.error('MongoDB connection error:', err);
+    const retryDelay = Math.min(baseRetryDelay * Math.pow(2, retryAttempt), 30000);
+    retryAttempt++;
+    
+    if (retryAttempt <= maxRetryAttempts) {
+        console.log(`Retrying connection in ${retryDelay/1000} seconds... (Attempt ${retryAttempt}/${maxRetryAttempts})`);
+        setTimeout(async () => {
+            console.log('Attempting to reconnect to MongoDB...');
+            await connectDB();
+        }, retryDelay);
+    } else {
+        console.error('Max retry attempts reached. Please check your MongoDB configuration.');
+    }
 });
 
 mongoose.connection.on('disconnected', () => {
     console.log('MongoDB disconnected');
+    if (retryAttempt <= maxRetryAttempts) {
+        const retryDelay = Math.min(baseRetryDelay * Math.pow(2, retryAttempt), 30000);
+        console.log(`Attempting to reconnect in ${retryDelay/1000} seconds...`);
+        setTimeout(async () => {
+            await connectDB();
+        }, retryDelay);
+    }
+});
+
+mongoose.connection.on('connected', async () => {
+    console.log('MongoDB connected');
+    retryAttempt = 0;
+    await seedInitialData();
 });
 
 mongoose.connection.on('reconnected', () => {
-    console.log('MongoDB reconnected');
+    console.log('MongoDB reconnected successfully');
+    retryAttempt = 0; // Reset retry counter on successful reconnection
 });
+
+// Modify handleDbOperation to use static data as fallback
+const handleDbOperation = async (operation, staticData) => {
+    if (useStaticData && staticData) {
+        return {
+            success: true,
+            data: staticData,
+            isStatic: true
+        };
+    }
+
+    if (mongoose.connection.readyState !== 1) {
+        return {
+            success: false,
+            error: 'Database connection is not available',
+            isStatic: false
+        };
+    }
+
+    try {
+        const result = await operation();
+        return {
+            success: true,
+            data: result,
+            isStatic: false
+        };
+    } catch (error) {
+        console.error('Database operation error:', error);
+        if (staticData) {
+            return {
+                success: true,
+                data: staticData,
+                isStatic: true
+            };
+        }
+        return {
+            success: false,
+            error: 'Database operation failed',
+            isStatic: false
+        };
+    }
+};
+
+// Example of using static data fallback in a route
+app.get('/api/users', async (req, res) => {
+    const staticUsers = [
+        { first_name: 'Demo', last_name: 'User', email: 'demo@example.com' }
+    ];
+
+    const result = await handleDbOperation(
+        async () => await User.find().select('-password'),
+        staticUsers
+    );
+
+    if (!result.success) {
+        return res.status(503).json({
+            error: result.error,
+            message: 'Service temporarily unavailable'
+        });
+    }
+
+    if (result.isStatic) {
+        res.set('X-Data-Source', 'static');
+    }
+
+    res.json(result.data);
+});
+
+// Initial connection attempt
+(async () => {
+    let connected = await connectDB();
+    if (!connected) {
+        console.log('Initial MongoDB connection failed. Server will continue running and retry connection...');
+    }
+})();
 
 // Define MongoDB models corresponding to your MySQL tables
 const User = mongoose.model('User', new mongoose.Schema({
@@ -80,56 +210,77 @@ const UserAction = mongoose.model('UserAction', new mongoose.Schema({
 
 // Middleware to authenticate user and attach to req.user
 app.use(async (req, res, next) => {
-    const userId = req.session.userId; // Session-based auth
+    // Add timeout handling for database operations
+    const timeoutDuration = 5000; // 5 seconds timeout
 
-    if (userId) {
-        try {
-            const user = await User.findById(userId).select('first_name last_name email avatar');
-            if (user) {
-                req.user = user;
-            } else {
-                req.user = null;
-            }
-        } catch (error) {
-            console.error('Error fetching user data:', error);
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            reject(new Error('Database operation timed out'));
+        }, timeoutDuration);
+    });
+
+    try {
+        const userId = req.session.userId;
+        if (!userId) {
             req.user = null;
+            return next();
         }
-    } else {
+
+        const userPromise = User.findById(userId).select('first_name last_name email avatar');
+        const result = await Promise.race([userPromise, timeoutPromise]);
+        
+        req.user = result;
+        next();
+    } catch (error) {
+        console.error('Auth middleware error:', error);
         req.user = null;
+        next();
     }
-    next();
 });
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        const user = await User.findOne({ email });
+        if (!mongoose.connection.readyState === 1) {
+            return res.status(503).json({ 
+                message: 'Database connection unavailable',
+                useStaticData: true 
+            });
+        }
 
-        if (user) {
-            const isPasswordValid = await bcrypt.compare(password, user.password);
+        const user = await User.findOne({ email }).maxTimeMS(5000); // Add timeout
 
-            if (isPasswordValid) {
-                req.session.userId = user._id; // Store the user ID in the session
-
-                return res.json({
-                    message: 'Login successful',
-                    redirectTo: '/dashboard',
-                    user: {
-                        first_name: user.first_name,
-                        last_name: user.last_name,
-                        email: user.email,
-                        avatar: user.avatar
-                    }
-                });
-            } else {
-                return res.status(401).json({ message: 'Invalid email or password' });
-            }
-        } else {
+        if (!user) {
             return res.status(401).json({ message: 'Invalid email or password' });
         }
+
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid email or password' });
+        }
+
+        req.session.userId = user._id;
+        
+        return res.json({
+            message: 'Login successful',
+            redirectTo: '/dashboard',
+            user: {
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                avatar: user.avatar
+            }
+        });
     } catch (error) {
         console.error('Login error:', error);
+        if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+            return res.status(503).json({ 
+                message: 'Service temporarily unavailable',
+                useStaticData: true
+            });
+        }
         return res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -298,13 +449,27 @@ app.get('/api/dashboard-data-static', (req, res) => {
 
 
 app.get('/api/users', async (req, res) => {
-    try {
-        const users = await User.find().select('-password'); // Exclude the password field from the response
-        res.json(users);
-    } catch (error) {
-        console.error('Error fetching users:', error);
-        res.status(500).json({ error: 'Failed to retrieve users.' });
+    const staticUsers = [
+        { first_name: 'Demo', last_name: 'User', email: 'demo@example.com' }
+    ];
+
+    const result = await handleDbOperation(
+        async () => await User.find().select('-password'),
+        staticUsers
+    );
+
+    if (!result.success) {
+        return res.status(503).json({
+            error: result.error,
+            message: 'Service temporarily unavailable'
+        });
     }
+
+    if (result.isStatic) {
+        res.set('X-Data-Source', 'static');
+    }
+
+    res.json(result.data);
 });
 
 app.get('/api/users-students', async (req, res) => {
@@ -567,8 +732,87 @@ app.post('/api/logout', (req, res) => {
     });
 });
 
+// Health check endpoint
+app.get('/', (req, res) => {
+    const dbStatus = mongoose.connection.readyState;
+    const dbStatusMap = {
+        0: 'disconnected',
+        1: 'connected',
+        2: 'connecting',
+        3: 'disconnecting'
+    };
 
+    res.json({
+        status: 'success',
+        message: 'API is running',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development',
+        database: {
+            status: dbStatusMap[dbStatus] || 'unknown',
+            connected: dbStatus === 1,
+            usingStaticData: useStaticData
+        }
+    });
+});
 
 app.listen(3000, () => {
     console.log('Server is running on http://localhost:3000');
+});
+
+// Add this after your models are defined
+const seedInitialData = async () => {
+    try {
+        // Check if we already have users
+        const userCount = await User.countDocuments();
+        if (userCount === 0) {
+            // Create a demo user
+            await User.create({
+                first_name: 'Demo',
+                last_name: 'User',
+                email: 'demo@example.com',
+                password: await bcrypt.hash('password123', 10),
+                created_at: new Date(),
+                class: 'JSS3',
+                gender: 'Male',
+                state: 'Lagos',
+                birth_year: 2000
+            });
+            console.log('Demo user created');
+        }
+    } catch (error) {
+        console.error('Error seeding initial data:', error);
+    }
+};
+
+// Modify the connection success handler
+mongoose.connection.on('connected', async () => {
+    console.log('MongoDB connected');
+    retryAttempt = 0;
+    await seedInitialData();
+});
+
+// Add connection monitoring
+mongoose.connection.on('connecting', () => {
+    console.log('Connecting to MongoDB...');
+});
+
+mongoose.connection.on('connected', async () => {
+    console.log('MongoDB connected');
+    retryAttempt = 0;
+    try {
+        await seedInitialData();
+    } catch (error) {
+        console.error('Error seeding initial data:', error);
+    }
+});
+
+mongoose.connection.on('disconnected', () => {
+    console.log('MongoDB disconnected');
+    if (retryAttempt <= maxRetryAttempts) {
+        const retryDelay = Math.min(baseRetryDelay * Math.pow(2, retryAttempt), 30000);
+        console.log(`Attempting to reconnect in ${retryDelay/1000} seconds... (Attempt ${retryAttempt + 1}/${maxRetryAttempts})`);
+        setTimeout(async () => {
+            await connectDB();
+        }, retryDelay);
+    }
 });
