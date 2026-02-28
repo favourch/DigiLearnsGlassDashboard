@@ -20,12 +20,26 @@ app.use(session({
     cookie: { secure: false } // Set to true if using HTTPS
 }));
 
-// Cache with a 5-minute TTL (Time-To-Live)
-const cache = new NodeCache({ stdTTL: 300 });
+// Cache with a 30-minute TTL
+const cache = new NodeCache({ stdTTL: 1800 });
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('Connected to MongoDB'))
+  .then(async () => {
+    console.log('Connected to MongoDB');
+    try {
+      const db = mongoose.connection;
+      await Promise.all([
+        db.collection('users_students').createIndex({ created_at: 1 }),
+        db.collection('tickets').createIndex({ status: 1, created_at: 1 }),
+        db.collection('user_actions').createIndex({ action_date: 1 }),
+      ]);
+      console.log('Indexes ensured');
+      warmCache();
+    } catch (err) {
+      console.error('Index creation error (non-fatal):', err.message);
+    }
+  })
   .catch(err => console.error('Could not connect to MongoDB:', err));
 
 // Define MongoDB models corresponding to your MySQL tables
@@ -320,86 +334,112 @@ app.get('/api/user-actions', async (req, res) => {
     }
 });
 
+async function getEarliestDate() {
+    let earliestDate = cache.get('earliestDate');
+    if (!earliestDate) {
+        const result = await mongoose.connection.collection('users_students')
+            .findOne({}, { sort: { created_at: 1 }, projection: { created_at: 1 } });
+        earliestDate = result ? result.created_at.toISOString() : new Date().toISOString();
+        cache.set('earliestDate', earliestDate, 86400);
+    }
+    return earliestDate;
+}
+
+function normalizedEndDate() {
+    const now = new Date();
+    now.setMinutes(0, 0, 0);
+    return now.toISOString();
+}
+
+async function buildDashboardData(startDate, endDate) {
+    const startDt = new Date(startDate);
+    const endDt = new Date(endDate);
+    const studentDateFilter = { created_at: { $gte: startDt, $lte: endDt } };
+    const actionDateFilter = { action_date: { $gte: startDt, $lte: endDt } };
+
+    const db = mongoose.connection;
+
+    // Batch 1: counts + user_actions heatmap (lighter queries)
+    const [studentCount, openTicketsCount, activityLogResult] = await Promise.all([
+        db.collection('users_students').countDocuments(studentDateFilter),
+        db.collection('tickets').countDocuments({ status: 'open', created_at: { $gte: startDt, $lte: endDt } }),
+        db.collection('user_actions').aggregate([
+            { $match: actionDateFilter },
+            { $group: { _id: { dayOfWeek: { $dayOfWeek: '$action_date' }, hour: { $hour: '$action_date' } }, count: { $sum: 1 } } }
+        ]).toArray()
+    ]);
+
+    // Batch 2: breakdowns (heavier aggregations, run after batch 1 finishes)
+    const [usersByClassResult, usersByGenderResult, usersByStateResult, usersByAgeResult] = await Promise.all([
+        db.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$class', count: { $sum: 1 } } }]).toArray(),
+        db.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$gender', count: { $sum: 1 } } }]).toArray(),
+        db.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$state', count: { $sum: 1 } } }]).toArray(),
+        db.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: { $subtract: [new Date().getFullYear(), '$birth_year'] }, count: { $sum: 1 } } }]).toArray()
+    ]);
+
+    const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const heatMapData = daysOfWeek.map((day, dayIdx) => {
+        const dayActions = activityLogResult.filter(log => log._id.dayOfWeek === dayIdx + 1);
+        const hours = Array.from({ length: 24 }, (_, hour) => {
+            const match = dayActions.find(l => l._id.hour === hour);
+            return match ? match.count : 0;
+        });
+        return { name: day, data: hours };
+    });
+
+    const allCounts = heatMapData.flatMap(day => day.data);
+
+    return {
+        earliestDate: await getEarliestDate(),
+        apiCalls: studentCount * 6,
+        totalSubjects: 16,
+        totalStates: 36,
+        totalClasses: 6,
+        activeUsers: studentCount,
+        totalRevenue: Math.round(studentCount / 1.5),
+        openTickets: Math.round(studentCount * 0.4),
+        totalMessages: Math.round(studentCount * 0.4) * 4,
+        usersByClass: usersByClassResult,
+        usersByGender: usersByGenderResult,
+        usersByState: usersByStateResult,
+        usersByAge: usersByAgeResult,
+        heatMapData,
+        maxCount: allCounts.length ? Math.max(...allCounts) : 0,
+        minCount: allCounts.length ? Math.min(...allCounts) : 0
+    };
+}
+
+async function warmCache() {
+    try {
+        console.log('Warming dashboard cache...');
+        const start = Date.now();
+        const earliestDate = await getEarliestDate();
+        const endDate = normalizedEndDate();
+        const cacheKey = `dashboard_${earliestDate}_${endDate}`;
+
+        const data = await buildDashboardData(earliestDate, endDate);
+        cache.set(cacheKey, data);
+        console.log(`Dashboard cache warmed in ${((Date.now() - start) / 1000).toFixed(1)}s`);
+    } catch (error) {
+        console.error('Cache warm-up failed (non-fatal):', error.message);
+    }
+}
+
 app.get('/api/dashboard-data', async (req, res) => {
     try {
         let { startDate, endDate } = req.query;
+        const earliestDate = await getEarliestDate();
 
-        const earliestDateResult = await mongoose.connection.collection('users_students')
-            .findOne({}, { sort: { created_at: 1 }, projection: { created_at: 1 } });
+        if (!startDate) startDate = earliestDate;
+        if (!endDate) endDate = normalizedEndDate();
 
-        const earliestDate = earliestDateResult ? earliestDateResult.created_at.toISOString() : new Date().toISOString();
-
-        if (!startDate) {
-            startDate = earliestDate;
-        }
-        endDate = endDate || new Date().toISOString();
-
-        const userId = req.user ? req.user.id : null;
-        const cacheKey = `dashboard_${userId}_${startDate}_${endDate}`;
+        const cacheKey = `dashboard_${startDate}_${endDate}`;
         const cachedData = cache.get(cacheKey);
         if (cachedData) {
             return res.json(cachedData);
         }
 
-        const startDt = new Date(startDate);
-        const endDt = new Date(endDate);
-        const studentDateFilter = { created_at: { $gte: startDt, $lte: endDt } };
-        const actionDateFilter = { action_date: { $gte: startDt, $lte: endDt } };
-
-        const [
-            studentCountResult,
-            openTicketsResult,
-            totalMessagesResult,
-            usersByClassResult,
-            usersByGenderResult,
-            usersByStateResult,
-            usersByAgeResult,
-            activityLogResult
-        ] = await Promise.all([
-            mongoose.connection.collection('users_students').countDocuments(studentDateFilter),
-            mongoose.connection.collection('tickets').countDocuments({ status: 'open', created_at: { $gte: startDt, $lte: endDt } }),
-            mongoose.connection.collection('user_actions').countDocuments(actionDateFilter),
-            mongoose.connection.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$class', count: { $sum: 1 } } }]).toArray(),
-            mongoose.connection.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$gender', count: { $sum: 1 } } }]).toArray(),
-            mongoose.connection.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: '$state', count: { $sum: 1 } } }]).toArray(),
-            mongoose.connection.collection('users_students').aggregate([{ $match: studentDateFilter }, { $group: { _id: { $subtract: [new Date().getFullYear(), '$birth_year'] }, count: { $sum: 1 } } }]).toArray(),
-            mongoose.connection.collection('user_actions').aggregate([
-                { $match: actionDateFilter },
-                { $group: { _id: { dayOfWeek: { $dayOfWeek: '$action_date' }, hour: { $hour: '$action_date' } }, count: { $sum: 1 } } }
-            ]).toArray()
-        ]);
-
-        const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const heatMapData = daysOfWeek.map((day, dayIdx) => {
-            const dayActions = activityLogResult.filter(log => log._id.dayOfWeek === dayIdx + 1);
-            const hours = Array.from({ length: 24 }, (_, hour) => {
-                const match = dayActions.find(l => l._id.hour === hour);
-                return match ? match.count : 0;
-            });
-            return { name: day, data: hours };
-        });
-
-        const allCounts = heatMapData.flatMap(day => day.data);
-
-        const data = {
-            earliestDate,
-            apiCalls: studentCountResult * 6,
-            totalSubjects: 16,
-            totalStates: 36,
-            totalClasses: 6,
-            activeUsers: studentCountResult,
-            totalRevenue: Math.round(studentCountResult / 1.5),
-            openTickets: Math.round(studentCountResult * 0.4),
-            totalMessages: Math.round(studentCountResult * 0.4) * 4,
-            usersByClass: usersByClassResult,
-            usersByGender: usersByGenderResult,
-            usersByState: usersByStateResult,
-            usersByAge: usersByAgeResult,
-            heatMapData,
-            maxCount: Math.max(...allCounts),
-            minCount: Math.min(...allCounts)
-        };
-
+        const data = await buildDashboardData(startDate, endDate);
         cache.set(cacheKey, data);
         res.json(data);
     } catch (error) {
