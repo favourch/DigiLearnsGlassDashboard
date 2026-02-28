@@ -1,9 +1,7 @@
 <template>
   <AppLayout>
-    <div v-if="isLoading" class="h-full flex items-center justify-center">
-      <Spinner />
-    </div>
-    <div v-else-if="user" class="bg-white md:bg-inherit p-4 md:p-8 rounded-[5px] text-[#000] h-full overflow-y-auto">
+    <div class="bg-white md:bg-inherit p-4 md:p-8 rounded-[5px] text-[#000] h-full overflow-y-auto">
+      <!-- Header (always visible) -->
       <div class="flex justify-between mt-3 md:mt-0">
         <div>
           <h2 class="md:block hidden text-xl mb-1">{{ $t('Dashboard') }}</h2>
@@ -12,7 +10,7 @@
               {{ `Welcome back, ${user.first_name}` }} 👋
             </span>
             <span v-else class="mt-1 font-semibold md:font-normal text-xl">
-               Welcome back, Gideon 👋
+               Welcome back, Favour 👋
             </span>
           </p>
         </div>
@@ -29,59 +27,101 @@
         <router-link to="/admin/organizations/create" class="bg-primary py-2 px-3 rounded-lg text-white text-center">{{ $t('Add School') }}</router-link>
         <router-link to="/admin/users/create" class="bg-primary py-2 px-3 rounded-lg text-white text-center">{{ $t('Add User') }}</router-link>
       </div>
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 md:space-y-0">
-        <div class="bg-slate-100 md:bg-white col-span-1 rounded-lg p-3" v-for="metric in metrics" :key="metric.title">
-          <div class="flex justify-between items-center">
-            <div>
-              <h2 class="text-slate-600">{{ metric.title }}</h2>
-              <h1 class="text-xl text-gray-600">{{ formatNumber(metric.value) }}</h1>
-            </div>
-            <div class="flex">
-              <span class="bg-secondary/10 p-3 rounded-full self-start">
-                <svg class="text-secondary" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24">
-                  <g fill="none" stroke="currentColor" stroke-width="1.5">
-                    <path d="M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12Z"/>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m7 14l2.293-2.293a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 0 1.414 0L17 10m0 0v2.5m0-2.5h-2.5"/>
-                  </g>
-                </svg>
-              </span>
+
+      <!-- Skeleton state -->
+      <template v-if="isLoading">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 md:space-y-0">
+          <div v-for="n in 8" :key="n" class="bg-slate-100 md:bg-white col-span-1 rounded-lg p-3 animate-pulse">
+            <div class="flex justify-between items-center">
+              <div class="space-y-2 flex-1">
+                <div class="h-4 w-20 bg-gray-200 rounded"></div>
+                <div class="h-6 w-16 bg-gray-200 rounded"></div>
+              </div>
+              <div class="bg-gray-200 p-3 rounded-full w-12 h-12"></div>
             </div>
           </div>
         </div>
-      </div>
-      <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
-        <div>
-          <h2 class="text-xl mb-4">{{ $t('Users by Class') }}</h2>
-          <apexchart type="pie" height="350" :options="pieChartOptions" :series="usersByClassSeries"></apexchart>
+        <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
+          <div class="animate-pulse">
+            <div class="h-5 w-32 bg-gray-200 rounded mb-4"></div>
+            <div class="h-[350px] bg-gray-100 rounded-lg"></div>
+          </div>
+          <div class="animate-pulse mt-8 md:mt-0">
+            <div class="h-5 w-36 bg-gray-200 rounded mb-4"></div>
+            <div class="h-[350px] bg-gray-100 rounded-lg"></div>
+          </div>
         </div>
-        <div>
-          <h2 class="text-xl mb-4">{{ $t('Users by Gender') }}</h2>
-          <apexchart type="bar" height="350" :options="barChartOptions" :series="usersByGenderSeries"></apexchart>
+        <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
+          <div class="animate-pulse">
+            <div class="h-5 w-32 bg-gray-200 rounded mb-4"></div>
+            <div class="h-[350px] bg-gray-100 rounded-lg"></div>
+          </div>
+          <div class="animate-pulse mt-8 md:mt-0">
+            <div class="h-5 w-28 bg-gray-200 rounded mb-4"></div>
+            <div class="h-[350px] bg-gray-100 rounded-lg"></div>
+          </div>
         </div>
-      </div>
-      <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
-        <div>
-          <h2 class="text-xl mb-4">{{ $t('Users by State') }}</h2>
-          <apexchart type="treemap" height="350" :options="treeMapOptions" :series="treeMapSeries"></apexchart>
+        <div class="mt-8 animate-pulse">
+          <div class="h-5 w-44 bg-gray-200 rounded mb-4"></div>
+          <div class="h-[350px] bg-gray-100 rounded-lg"></div>
         </div>
-        <div>
-          <h2 class="text-xl mb-4">{{ $t('Users by Age') }}</h2>
-          <apexchart type="bar" height="350" :options="ageChartOptions" :series="usersByAgeSeries"></apexchart>
+      </template>
+
+      <!-- Loaded state -->
+      <template v-else>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2 md:space-y-0">
+          <div class="bg-slate-100 md:bg-white col-span-1 rounded-lg p-3" v-for="metric in metrics" :key="metric.title">
+            <div class="flex justify-between items-center">
+              <div>
+                <h2 class="text-slate-600">{{ metric.title }}</h2>
+                <h1 class="text-xl text-gray-600">{{ formatNumber(metric.value) }}</h1>
+              </div>
+              <div class="flex">
+                <span class="bg-secondary/10 p-3 rounded-full self-start">
+                  <svg class="text-secondary" xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24">
+                    <g fill="none" stroke="currentColor" stroke-width="1.5">
+                      <path d="M2 12c0-4.714 0-7.071 1.464-8.536C4.93 2 7.286 2 12 2c4.714 0 7.071 0 8.535 1.464C22 4.93 22 7.286 22 12c0 4.714 0 7.071-1.465 8.535C19.072 22 16.714 22 12 22s-7.071 0-8.536-1.465C2 19.072 2 16.714 2 12Z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" d="m7 14l2.293-2.293a1 1 0 0 1 1.414 0l1.586 1.586a1 1 0 0 0 1.414 0L17 10m0 0v2.5m0-2.5h-2.5"/>
+                    </g>
+                  </svg>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
-      <div class="md:grid md:grid-cols-1 gap-x-4 mt-8">
-        <div>
-          <h2 class="text-xl mb-4">{{ $t('User Activity Heatmap') }}</h2>
-          <apexchart type="heatmap" height="350" :options="heatMapChartOptions" :series="heatMapSeries"></apexchart>
+        <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
+          <div>
+            <h2 class="text-xl mb-4">{{ $t('Users by Class') }}</h2>
+            <apexchart type="pie" height="350" :options="pieChartOptions" :series="usersByClassSeries"></apexchart>
+          </div>
+          <div>
+            <h2 class="text-xl mb-4">{{ $t('Users by Gender') }}</h2>
+            <apexchart type="bar" height="350" :options="barChartOptions" :series="usersByGenderSeries"></apexchart>
+          </div>
         </div>
-      </div>
+        <div class="md:grid md:grid-cols-2 gap-x-4 mt-8">
+          <div>
+            <h2 class="text-xl mb-4">{{ $t('Users by State') }}</h2>
+            <apexchart type="treemap" height="350" :options="treeMapOptions" :series="treeMapSeries"></apexchart>
+          </div>
+          <div>
+            <h2 class="text-xl mb-4">{{ $t('Users by Age') }}</h2>
+            <apexchart type="bar" height="350" :options="ageChartOptions" :series="usersByAgeSeries"></apexchart>
+          </div>
+        </div>
+        <div class="md:grid md:grid-cols-1 gap-x-4 mt-8">
+          <div>
+            <h2 class="text-xl mb-4">{{ $t('User Activity Heatmap') }}</h2>
+            <apexchart type="heatmap" height="350" :options="heatMapChartOptions" :series="heatMapSeries"></apexchart>
+          </div>
+        </div>
+      </template>
     </div>
   </AppLayout>
 </template>
 
 <script setup>
 import AppLayout from './Layout/App.vue';
-import Spinner from './Spinner.vue';
 import { ref, onMounted, computed } from 'vue';
 import axios from 'axios';
 import ApexCharts from 'vue3-apexcharts';
