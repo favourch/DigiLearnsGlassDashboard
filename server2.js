@@ -346,9 +346,7 @@ async function getEarliestDate() {
 }
 
 function normalizedEndDate() {
-    const now = new Date();
-    now.setMinutes(0, 0, 0);
-    return now.toISOString();
+    return new Date().toISOString().split('T')[0] + 'T23:59:59.999Z';
 }
 
 async function buildDashboardData(startDate, endDate) {
