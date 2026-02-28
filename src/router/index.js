@@ -38,6 +38,16 @@ const routes = [
     meta: { title: 'Manage Users' },
   },
   {
+    path: '/users/create',
+    component: Show,
+    meta: { title: 'Create User' },
+  },
+  {
+    path: '/users/:id',
+    component: Show,
+    meta: { title: 'Edit User' },
+  },
+  {
     path: '/students',
     component: Students,
     meta: { title: 'Manage Students' },
@@ -46,11 +56,6 @@ const routes = [
     path: '/customer',
     component: Customer,
     meta: { title: 'Manage Customers' },
-  },
-  {
-    path: '/users/:id',
-    component: Show,
-    meta: { title: 'User Details' },
   }
 ];
 

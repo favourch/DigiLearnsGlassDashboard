@@ -42,19 +42,30 @@ mongoose.connect(process.env.MONGO_URI)
   })
   .catch(err => console.error('Could not connect to MongoDB:', err));
 
-// Define MongoDB models corresponding to your MySQL tables
-const User = mongoose.model('User', new mongoose.Schema({
+const userSchema = new mongoose.Schema({
     first_name: String,
     last_name: String,
-    email: String,
+    email: { type: String, unique: true },
+    phone: String,
     password: String,
     avatar: String,
-    created_at: Date,
+    role: { type: String, enum: ['admin', 'teacher', 'content', 'moderator'], default: 'teacher' },
+    status: { type: Number, default: 1 },
+    address: String,
+    created_at: { type: Date, default: Date.now },
+    updated_at: { type: Date, default: Date.now },
     class: String,
     gender: String,
     state: String,
     birth_year: Number
-}));
+});
+
+userSchema.pre('save', function (next) {
+    this.updated_at = new Date();
+    next();
+});
+
+const User = mongoose.model('User', userSchema);
 
 const Setting = mongoose.model('Setting', new mongoose.Schema({
     key: String,
@@ -291,12 +302,125 @@ app.get('/api/dashboard-data-static', (req, res) => {
 
 app.get('/api/users', async (req, res) => {
     try {
-        const users = await User.find().select('-password'); // Exclude the password field from the response
+        const { search, role } = req.query;
+        const query = {};
+
+        if (search) {
+            query.$or = [
+                { first_name: { $regex: search, $options: 'i' } },
+                { last_name: { $regex: search, $options: 'i' } },
+                { email: { $regex: search, $options: 'i' } }
+            ];
+        }
+        if (role) {
+            query.role = role;
+        }
+
+        const users = await User.find(query).select('-password').sort({ created_at: -1 });
         res.json(users);
     } catch (error) {
         console.error('Error fetching users:', error);
         res.status(500).json({ error: 'Failed to retrieve users.' });
     }
+});
+
+app.get('/api/users/:id', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id).select('-password');
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json(user);
+    } catch (error) {
+        console.error('Error fetching user:', error);
+        res.status(500).json({ error: 'Failed to retrieve user.' });
+    }
+});
+
+app.post('/api/users', async (req, res) => {
+    try {
+        const { first_name, last_name, email, phone, password, role, street, city, state, zip, country } = req.body;
+
+        if (!first_name || !last_name || !email || !password) {
+            return res.status(400).json({ error: 'First name, last name, email, and password are required.' });
+        }
+
+        const existing = await User.findOne({ email });
+        if (existing) {
+            return res.status(409).json({ error: 'A user with this email already exists.' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const address = JSON.stringify({ street, city, state, zip, country });
+
+        const user = new User({
+            first_name,
+            last_name,
+            email,
+            phone,
+            password: hashedPassword,
+            role: role || 'teacher',
+            address,
+            status: 1
+        });
+
+        await user.save();
+        const { password: _, ...userData } = user.toObject();
+        res.status(201).json(userData);
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ error: 'Failed to create user.' });
+    }
+});
+
+app.put('/api/users/:id', async (req, res) => {
+    try {
+        const { first_name, last_name, email, phone, password, role, status, street, city, state, zip, country } = req.body;
+
+        const user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+
+        if (email && email !== user.email) {
+            const existing = await User.findOne({ email });
+            if (existing) return res.status(409).json({ error: 'A user with this email already exists.' });
+        }
+
+        if (first_name !== undefined) user.first_name = first_name;
+        if (last_name !== undefined) user.last_name = last_name;
+        if (email !== undefined) user.email = email;
+        if (phone !== undefined) user.phone = phone;
+        if (role !== undefined) user.role = role;
+        if (status !== undefined) user.status = status;
+        if (password) user.password = await bcrypt.hash(password, 10);
+        if (street !== undefined || city !== undefined || state !== undefined || zip !== undefined || country !== undefined) {
+            user.address = JSON.stringify({ street, city, state, zip, country });
+        }
+
+        await user.save();
+        const { password: _, ...userData } = user.toObject();
+        res.json(userData);
+    } catch (error) {
+        console.error('Error updating user:', error);
+        res.status(500).json({ error: 'Failed to update user.' });
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    try {
+        const user = await User.findByIdAndDelete(req.params.id);
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        res.json({ message: 'User deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ error: 'Failed to delete user.' });
+    }
+});
+
+app.get('/api/roles', (req, res) => {
+    res.json([
+        { value: 'admin', label: 'Admin' },
+        { value: 'teacher', label: 'Teacher' },
+        { value: 'content', label: 'Content Manager' },
+        { value: 'moderator', label: 'Moderator' }
+    ]);
 });
 
 app.get('/api/users-students', async (req, res) => {
