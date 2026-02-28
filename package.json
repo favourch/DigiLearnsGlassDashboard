@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run frontend && npm run backend",
+    "dev": "npm run frontend",
     "backend": "node server2.js",
     "frontend": "vite",
     "build": "vite build",
