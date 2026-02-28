@@ -101,57 +101,31 @@ const usersByAgeSeries = ref([]);
 const heatMapSeries = ref([]);
 const selectedDateRange = ref(null);
 
-onMounted(async () => {
-  try {
-    console.log('Dashboard component mounted');
-
-    // Fetch the earliest start date and current date
-    const earliestDateResponse = await axios.get(`${import.meta.env.VITE_API}/api/earliest-start-date`);
-    const earliestDate = new Date(earliestDateResponse.data.startDate); 
-    const currentDate = new Date(); 
-
-    selectedDateRange.value = [earliestDate, currentDate];
-
-    fetchDashboardData();
-  } catch (error) {
-    console.error('Error fetching the earliest start date:', error);
-  }
+onMounted(() => {
+  fetchDashboardData();
 });
 
 async function fetchDashboardData() {
   try {
-    console.log('fetchDashboardData called');
-
     const params = {};
     if (selectedDateRange.value && selectedDateRange.value.length === 2) {
       const startDate = new Date(selectedDateRange.value[0]);
       const endDate = new Date(selectedDateRange.value[1]);
 
       if (!isNaN(startDate) && !isNaN(endDate)) {
-        params.startDate = startDate.toISOString(); 
-        params.endDate = endDate.toISOString(); 
+        params.startDate = startDate.toISOString();
+        params.endDate = endDate.toISOString();
       } else {
         console.error('Invalid date range selected');
         return;
       }
-    } else {
-      const initialResponse = await axios.get(`${import.meta.env.VITE_API}/api/dashboard-data-initial-dates`);
-      params.startDate = initialResponse.data.startDate;
-      params.endDate = new Date().toISOString();
     }
 
-    console.log('Request params:', params);
+    const { data } = await axios.get(`${import.meta.env.VITE_API}/api/dashboard-data`, { params });
 
-    const [dashboardDataResponse, heatmapDataResponse] = await Promise.all([
-      axios.get(`${import.meta.env.VITE_API}/api/dashboard-data`, { params }),
-      axios.get(`${import.meta.env.VITE_API}/api/user-actions-heatmap`, { params })
-    ]);
-
-    console.log('Dashboard data:', dashboardDataResponse.data);
-    console.log('Heatmap data:', heatmapDataResponse.data);
-
-    const data = dashboardDataResponse.data;
-    const heatMapData = heatmapDataResponse.data.heatMapData;
+    if (!selectedDateRange.value && data.earliestDate) {
+      selectedDateRange.value = [new Date(data.earliestDate), new Date()];
+    }
 
     metrics.value = [
       { title: 'API Calls', value: data.apiCalls },
@@ -174,7 +148,7 @@ async function fetchDashboardData() {
     ageChartOptions.value.xaxis.categories = ageGroups;
     usersByAgeSeries.value = [{ name: 'Users', data: ageCounts }];
 
-    heatMapSeries.value = heatMapData.map(day => ({
+    heatMapSeries.value = data.heatMapData.map(day => ({
       name: day.name,
       data: day.data.map((count, hour) => ({ x: `${hour}:00`, y: count }))
     }));
